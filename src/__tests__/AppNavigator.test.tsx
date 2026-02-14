@@ -34,20 +34,30 @@ jest.mock('../screens/stats/StatsScreen', () => ({
 }));
 
 describe('AppNavigator', () => {
+  it('renders boot screen when not hydrated', () => {
+    const hydrate = jest.fn();
+    const state = { isAuthenticated: false, isHydrated: false, hydrate };
+    mockUseAuthStore.mockImplementation((selector) => selector(state));
+
+    const { getByText } = render(<AppNavigator />);
+
+    expect(getByText('세션을 불러오는 중입니다.')).toBeTruthy();
+  });
+
   it('renders auth stack when not authenticated', () => {
-    mockUseAuthStore.mockImplementation((selector) =>
-      selector({ isAuthenticated: false })
-    );
+    const hydrate = jest.fn();
+    const state = { isAuthenticated: false, isHydrated: true, hydrate };
+    mockUseAuthStore.mockImplementation((selector) => selector(state));
 
     render(<AppNavigator />);
 
     expect(mockUseAuthStore).toHaveBeenCalled();
   });
 
-  it('renders main stack when authenticated', () => {
-    mockUseAuthStore.mockImplementation((selector) =>
-      selector({ isAuthenticated: true })
-    );
+  it('renders main tabs when authenticated', () => {
+    const hydrate = jest.fn();
+    const state = { isAuthenticated: true, isHydrated: true, hydrate };
+    mockUseAuthStore.mockImplementation((selector) => selector(state));
 
     render(<AppNavigator />);
 

@@ -23,6 +23,17 @@ jest.mock('@react-navigation/native-stack', () => {
   };
 });
 
+jest.mock('@react-navigation/bottom-tabs', () => {
+  return {
+    createBottomTabNavigator: () => {
+      return {
+        Navigator: ({ children }: { children: React.ReactNode }) => children,
+        Screen: ({ children }: { children: React.ReactNode }) => children,
+      };
+    },
+  };
+});
+
 jest.mock('react-native-chart-kit', () => {
   const React = require('react');
   return {
