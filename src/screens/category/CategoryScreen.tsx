@@ -9,6 +9,9 @@ import {
   View,
 } from 'react-native';
 
+import { EmptyState } from '../../components/EmptyState';
+import { ErrorBanner } from '../../components/ErrorBanner';
+import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { TextField } from '../../components/TextField';
 import { CategoryType } from '../../services/categoryApi';
@@ -91,7 +94,7 @@ export function CategoryScreen() {
         <PrimaryButton title={loading ? '처리 중...' : '추가'} onPress={handleAdd} disabled={loading} />
       </View>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <ErrorBanner message={error} /> : null}
 
       <View style={styles.listHeader}>
         <Text style={styles.sectionTitle}>카테고리 목록</Text>
@@ -104,7 +107,7 @@ export function CategoryScreen() {
         data={sortedItems}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.list}
-        ListEmptyComponent={<Text style={styles.empty}>등록된 카테고리가 없습니다.</Text>}
+        ListEmptyComponent={<EmptyState title="등록된 카테고리가 없습니다." description="카테고리를 추가해 주세요." />}
         renderItem={({ item }) => (
           <View style={styles.listItem}>
             {editingId === item.id ? (
@@ -149,6 +152,7 @@ export function CategoryScreen() {
           </View>
         )}
       />
+      {loading ? <LoadingOverlay /> : null}
     </View>
   );
 }
@@ -199,10 +203,6 @@ const styles = StyleSheet.create({
   typeChipTextActive: {
     color: '#fff',
     fontWeight: '600',
-  },
-  error: {
-    color: '#ef4444',
-    marginBottom: 8,
   },
   listHeader: {
     flexDirection: 'row',

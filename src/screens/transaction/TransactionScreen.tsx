@@ -10,6 +10,9 @@ import {
   View,
 } from 'react-native';
 
+import { EmptyState } from '../../components/EmptyState';
+import { ErrorBanner } from '../../components/ErrorBanner';
+import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { TextField } from '../../components/TextField';
 import { TransactionType } from '../../services/transactionApi';
@@ -146,7 +149,7 @@ export function TransactionScreen() {
         <PrimaryButton title={loading ? '처리 중...' : '추가'} onPress={handleAdd} disabled={loading} />
       </View>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <ErrorBanner message={error} /> : null}
 
       <View style={styles.listHeader}>
         <Text style={styles.sectionTitle}>거래 목록</Text>
@@ -159,7 +162,7 @@ export function TransactionScreen() {
         data={sortedItems}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.list}
-        ListEmptyComponent={<Text style={styles.empty}>등록된 거래가 없습니다.</Text>}
+        ListEmptyComponent={<EmptyState title="거래 내역이 없습니다." description="첫 거래를 추가해 보세요." />}
         renderItem={({ item }) => (
           <View style={styles.listItem}>
             {editingId === item.id ? (
@@ -193,8 +196,12 @@ export function TransactionScreen() {
             ) : (
               <>
                 <View>
-                  <Text style={styles.itemName}>{item.type === 'EXPENSE' ? '지출' : '수입'} {item.amount.toLocaleString()}원</Text>
-                  <Text style={styles.itemMeta}>카테고리 {item.categoryId} · {dayjs(item.occurredAt).format('YYYY-MM-DD')}</Text>
+                  <Text style={styles.itemName}>
+                    {item.type === 'EXPENSE' ? '지출' : '수입'} {item.amount.toLocaleString()}원
+                  </Text>
+                  <Text style={styles.itemMeta}>
+                    카테고리 {item.categoryId} · {dayjs(item.occurredAt).format('YYYY-MM-DD')}
+                  </Text>
                 </View>
                 <View style={styles.actions}>
                   <Pressable style={styles.actionButton} onPress={() => startEdit(item.id)}>
@@ -212,6 +219,7 @@ export function TransactionScreen() {
           </View>
         )}
       />
+      {loading ? <LoadingOverlay /> : null}
     </View>
   );
 }

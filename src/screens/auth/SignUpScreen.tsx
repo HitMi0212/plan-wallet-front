@@ -3,6 +3,7 @@ import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'r
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
+import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { TextField } from '../../components/TextField';
 import { useAuthStore } from '../../stores/authStore';
@@ -11,12 +12,10 @@ import { SignUpForm, signUpSchema } from '../../utils/authSchemas';
 export function SignUpScreen({ navigation }: { navigation: any }) {
   const signUp = useAuthStore((state) => state.signUp);
 
-  const [loading, setLoading] = useState(false);
-
   const {
     control,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<SignUpForm>({
     resolver: zodResolver(signUpSchema),
     defaultValues: {
@@ -28,12 +27,9 @@ export function SignUpScreen({ navigation }: { navigation: any }) {
 
   const handleSignUp = handleSubmit(async (values) => {
     try {
-      setLoading(true);
       await signUp(values.email.trim(), values.password, values.nickname.trim());
     } catch (error) {
       Alert.alert('회원가입 실패', '입력값을 확인해 주세요.');
-    } finally {
-      setLoading(false);
     }
   });
 
@@ -82,12 +78,13 @@ export function SignUpScreen({ navigation }: { navigation: any }) {
           />
         )}
       />
-      <PrimaryButton title={loading ? '가입 중...' : '가입'} onPress={handleSignUp} disabled={loading} />
+      <PrimaryButton title={isSubmitting ? '가입 중...' : '가입'} onPress={handleSignUp} disabled={isSubmitting} />
       <View style={styles.linkRow}>
         <Text style={styles.link} onPress={() => navigation.goBack()}>
           로그인으로 돌아가기
         </Text>
       </View>
+      {isSubmitting ? <LoadingOverlay /> : null}
     </KeyboardAvoidingView>
   );
 }

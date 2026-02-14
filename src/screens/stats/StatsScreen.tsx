@@ -3,6 +3,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BarChart, PieChart } from 'react-native-chart-kit';
 
+import { EmptyState } from '../../components/EmptyState';
+import { ErrorBanner } from '../../components/ErrorBanner';
+import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { useStatsStore } from '../../stores/statsStore';
 
 const screenWidth = Dimensions.get('window').width;
@@ -50,8 +53,12 @@ export function StatsScreen() {
         </Pressable>
       </View>
 
-      {loading && <Text style={styles.info}>통계 불러오는 중...</Text>}
-      {error && <Text style={styles.error}>{error}</Text>}
+      {loading ? <LoadingOverlay /> : null}
+      {error ? <ErrorBanner message={error} /> : null}
+
+      {!loading && !error && !monthly ? (
+        <EmptyState title="통계 데이터가 없습니다." description="거래를 추가한 후 확인해 주세요." />
+      ) : null}
 
       {monthly && chartData && (
         <View style={styles.card}>

@@ -1,8 +1,9 @@
-﻿import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
+import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { TextField } from '../../components/TextField';
 import { useAuthStore } from '../../stores/authStore';
@@ -13,12 +14,10 @@ export function LoginScreen({ navigation }: { navigation: any }) {
   const hydrate = useAuthStore((state) => state.hydrate);
   const isHydrated = useAuthStore((state) => state.isHydrated);
 
-  const [loading, setLoading] = useState(false);
-
   const {
     control,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -33,12 +32,9 @@ export function LoginScreen({ navigation }: { navigation: any }) {
 
   const handleLogin = handleSubmit(async (values) => {
     try {
-      setLoading(true);
       await login(values.email.trim(), values.password);
     } catch (error) {
       Alert.alert('로그인 실패', '이메일 또는 비밀번호를 확인해 주세요.');
-    } finally {
-      setLoading(false);
     }
   });
 
@@ -84,12 +80,13 @@ export function LoginScreen({ navigation }: { navigation: any }) {
           />
         )}
       />
-      <PrimaryButton title={loading ? '로그인 중...' : '로그인'} onPress={handleLogin} disabled={loading} />
+      <PrimaryButton title={isSubmitting ? '로그인 중...' : '로그인'} onPress={handleLogin} disabled={isSubmitting} />
       <View style={styles.linkRow}>
         <Text style={styles.link} onPress={() => navigation.navigate('SignUp')}>
           회원가입
         </Text>
       </View>
+      {isSubmitting ? <LoadingOverlay /> : null}
     </KeyboardAvoidingView>
   );
 }
