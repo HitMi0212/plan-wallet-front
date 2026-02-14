@@ -7,6 +7,8 @@ interface TextFieldProps {
   onChangeText: (value: string) => void;
   placeholder?: string;
   secureTextEntry?: boolean;
+  errorMessage?: string;
+  keyboardType?: 'default' | 'email-address';
 }
 
 export function TextField({
@@ -15,17 +17,22 @@ export function TextField({
   onChangeText,
   placeholder,
   secureTextEntry,
+  errorMessage,
+  keyboardType = 'default',
 }: TextFieldProps) {
   return (
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
-        style={styles.input}
+        style={[styles.input, errorMessage ? styles.inputError : null]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
         secureTextEntry={secureTextEntry}
+        keyboardType={keyboardType}
+        autoCapitalize="none"
       />
+      {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
     </View>
   );
 }
@@ -46,5 +53,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
+  },
+  inputError: {
+    borderColor: '#ef4444',
+  },
+  error: {
+    marginTop: 6,
+    color: '#ef4444',
+    fontSize: 12,
   },
 });

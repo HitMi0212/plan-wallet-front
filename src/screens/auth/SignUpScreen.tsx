@@ -1,42 +1,94 @@
 ﻿import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { TextField } from '../../components/TextField';
 import { useAuthStore } from '../../stores/authStore';
+import { SignUpForm, signUpSchema } from '../../utils/authSchemas';
 
 export function SignUpScreen({ navigation }: { navigation: any }) {
   const signUp = useAuthStore((state) => state.signUp);
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [nickname, setNickname] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSignUp = async () => {
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<SignUpForm>({
+    resolver: zodResolver(signUpSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+      nickname: '',
+    },
+  });
+
+  const handleSignUp = handleSubmit(async (values) => {
     try {
       setLoading(true);
-      await signUp(email.trim(), password, nickname.trim());
+      await signUp(values.email.trim(), values.password, values.nickname.trim());
     } catch (error) {
       Alert.alert('회원가입 실패', '입력값을 확인해 주세요.');
     } finally {
       setLoading(false);
     }
-  };
+  });
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.select({ ios: 'padding', android: undefined })}
+    >
       <Text style={styles.title}>회원가입</Text>
-      <TextField label="이메일" value={email} onChangeText={setEmail} placeholder="user@example.com" />
-      <TextField label="비밀번호" value={password} onChangeText={setPassword} secureTextEntry />
-      <TextField label="닉네임" value={nickname} onChangeText={setNickname} />
+      <Controller
+        control={control}
+        name="email"
+        render={({ field: { value, onChange } }) => (
+          <TextField
+            label="이메일"
+            value={value}
+            onChangeText={onChange}
+            placeholder="user@example.com"
+            keyboardType="email-address"
+            errorMessage={errors.email?.message}
+          />
+        )}
+      />
+      <Controller
+        control={control}
+        name="password"
+        render={({ field: { value, onChange } }) => (
+          <TextField
+            label="비밀번호"
+            value={value}
+            onChangeText={onChange}
+            secureTextEntry
+            errorMessage={errors.password?.message}
+          />
+        )}
+      />
+      <Controller
+        control={control}
+        name="nickname"
+        render={({ field: { value, onChange } }) => (
+          <TextField
+            label="닉네임"
+            value={value}
+            onChangeText={onChange}
+            errorMessage={errors.nickname?.message}
+          />
+        )}
+      />
       <PrimaryButton title={loading ? '가입 중...' : '가입'} onPress={handleSignUp} disabled={loading} />
       <View style={styles.linkRow}>
         <Text style={styles.link} onPress={() => navigation.goBack()}>
           로그인으로 돌아가기
         </Text>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
