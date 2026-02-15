@@ -4,11 +4,11 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { useAuthStore } from '../../stores/authStore';
-import { useStatsStore } from '../../stores/statsStore';
+import { useSummaryStore } from '../../stores/summaryStore';
 
 export function HomeScreen({ navigation }: { navigation: any }) {
   const logout = useAuthStore((state) => state.logout);
-  const { monthly, loading, load } = useStatsStore();
+  const { monthly, loading, load, error } = useSummaryStore();
 
   useEffect(() => {
     const now = dayjs();
@@ -22,6 +22,8 @@ export function HomeScreen({ navigation }: { navigation: any }) {
         <Text style={styles.sectionTitle}>이번 달 요약</Text>
         {loading ? (
           <Text style={styles.summaryText}>불러오는 중...</Text>
+        ) : error ? (
+          <Text style={styles.summaryText}>{error}</Text>
         ) : monthly ? (
           <>
             <Text style={styles.summaryText}>수입 {monthly.incomeTotal.toLocaleString()}원</Text>
