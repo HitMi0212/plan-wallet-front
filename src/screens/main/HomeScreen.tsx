@@ -10,9 +10,13 @@ export function HomeScreen({ navigation }: { navigation: any }) {
   const logout = useAuthStore((state) => state.logout);
   const { monthly, loading, load, error } = useSummaryStore();
 
-  useEffect(() => {
+  const reloadSummary = () => {
     const now = dayjs();
     load(now.year(), now.month() + 1);
+  };
+
+  useEffect(() => {
+    reloadSummary();
   }, [load]);
 
   return (
@@ -23,7 +27,10 @@ export function HomeScreen({ navigation }: { navigation: any }) {
         {loading ? (
           <Text style={styles.summaryText}>불러오는 중...</Text>
         ) : error ? (
-          <Text style={styles.summaryText}>{error}</Text>
+          <>
+            <Text style={styles.summaryText}>{error}</Text>
+            <PrimaryButton title="다시 시도" onPress={reloadSummary} />
+          </>
         ) : monthly ? (
           <>
             <Text style={styles.summaryText}>수입 {monthly.incomeTotal.toLocaleString()}원</Text>

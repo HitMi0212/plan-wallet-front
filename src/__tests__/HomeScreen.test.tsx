@@ -9,6 +9,15 @@ jest.mock('../stores/authStore', () => ({
   }),
 }));
 
+jest.mock('../stores/summaryStore', () => ({
+  useSummaryStore: () => ({
+    monthly: null,
+    loading: false,
+    error: null,
+    load: jest.fn(),
+  }),
+}));
+
 describe('HomeScreen', () => {
   it('renders main buttons', () => {
     const { getByText } = render(<HomeScreen navigation={{ navigate: jest.fn() }} />);
