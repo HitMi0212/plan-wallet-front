@@ -16,6 +16,7 @@ import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { TextField } from '../../components/TextField';
 import { TransactionType } from '../../services/transactionApi';
+import { useCategoryStore } from '../../stores/categoryStore';
 import { useTransactionStore } from '../../stores/transactionStore';
 
 const typeOptions: { label: string; value: TransactionType }[] = [
@@ -25,10 +26,12 @@ const typeOptions: { label: string; value: TransactionType }[] = [
 
 export function TransactionScreen() {
   const { items, loading, error, load, add, update, remove } = useTransactionStore();
+  const categories = useCategoryStore((state) => state.items);
+  const loadCategories = useCategoryStore((state) => state.load);
 
   const [type, setType] = useState<TransactionType>('EXPENSE');
   const [amount, setAmount] = useState('');
-  const [categoryId, setCategoryId] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [memo, setMemo] = useState('');
   const [occurredAt, setOccurredAt] = useState(dayjs().toISOString());
 
@@ -36,28 +39,43 @@ export function TransactionScreen() {
   const [editingAmount, setEditingAmount] = useState('');
   const [editingMemo, setEditingMemo] = useState('');
   const [editingOccurredAt, setEditingOccurredAt] = useState('');
-  const [editingCategoryId, setEditingCategoryId] = useState('');
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [editingType, setEditingType] = useState<TransactionType>('EXPENSE');
 
   useEffect(() => {
     load();
   }, [load]);
 
+  useEffect(() => {
+    if (categories.length === 0) {
+      loadCategories();
+    }
+  }, [categories.length, loadCategories]);
+
   const sortedItems = useMemo(
     () => [...items].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)),
     [items]
   );
 
+  const categoryMap = useMemo(() => {
+    return new Map(categories.map((category) => [category.id, category]));
+  }, [categories]);
+
+  const sortedCategories = useMemo(
+    () => [...categories].sort((a, b) => a.name.localeCompare(b.name)),
+    [categories]
+  );
+
   const handleAdd = async () => {
     const parsedAmount = Number(amount);
-    const parsedCategory = Number(categoryId);
+    const parsedCategory = selectedCategoryId ?? 0;
 
     if (!parsedAmount || parsedAmount <= 0) {
       Alert.alert('입력 오류', '금액을 올바르게 입력해 주세요.');
       return;
     }
     if (!parsedCategory || parsedCategory <= 0) {
-      Alert.alert('입력 오류', '카테고리 ID를 입력해 주세요.');
+      Alert.alert('입력 오류', '카테고리를 선택해 주세요.');
       return;
     }
 
@@ -70,7 +88,7 @@ export function TransactionScreen() {
     });
 
     setAmount('');
-    setCategoryId('');
+    setSelectedCategoryId(null);
     setMemo('');
     setOccurredAt(dayjs().toISOString());
   };
@@ -81,7 +99,7 @@ export function TransactionScreen() {
     setEditingId(id);
     setEditingType(target.type);
     setEditingAmount(String(target.amount));
-    setEditingCategoryId(String(target.categoryId));
+    setEditingCategoryId(target.categoryId);
     setEditingMemo(target.memo ?? '');
     setEditingOccurredAt(target.occurredAt);
   };
@@ -90,13 +108,13 @@ export function TransactionScreen() {
     if (editingId === null) return;
 
     const parsedAmount = Number(editingAmount);
-    const parsedCategory = Number(editingCategoryId);
+    const parsedCategory = editingCategoryId ?? 0;
     if (!parsedAmount || parsedAmount <= 0) {
       Alert.alert('입력 오류', '금액을 올바르게 입력해 주세요.');
       return;
     }
     if (!parsedCategory || parsedCategory <= 0) {
-      Alert.alert('입력 오류', '카테고리 ID를 입력해 주세요.');
+      Alert.alert('입력 오류', '카테고리를 선택해 주세요.');
       return;
     }
 
@@ -138,7 +156,33 @@ export function TransactionScreen() {
           ))}
         </View>
         <TextField label="금액" value={amount} onChangeText={setAmount} placeholder="예: 12000" />
-        <TextField label="카테고리 ID" value={categoryId} onChangeText={setCategoryId} placeholder="예: 10" />
+        <View style={styles.categorySection}>
+          <Text style={styles.categoryLabel}>카테고리</Text>
+          <View style={styles.categoryRow}>
+            {sortedCategories.map((category) => (
+              <Pressable
+                key={category.id}
+                style={[
+                  styles.categoryChip,
+                  category.type === 'EXPENSE' ? styles.categoryChipExpense : styles.categoryChipIncome,
+                  selectedCategoryId === category.id && styles.categoryChipActive,
+                ]}
+                onPress={() => setSelectedCategoryId(category.id)}
+              >
+                <Text
+                  style={
+                    selectedCategoryId === category.id ? styles.categoryChipTextActive : styles.categoryChipText
+                  }
+                >
+                  {category.name}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          {sortedCategories.length === 0 ? (
+            <Text style={styles.helperText}>카테고리를 먼저 추가해 주세요.</Text>
+          ) : null}
+        </View>
         <TextField label="메모" value={memo} onChangeText={setMemo} placeholder="예: 점심" />
         <TextField
           label="발생 일시(ISO)"
@@ -181,7 +225,32 @@ export function TransactionScreen() {
                   ))}
                 </View>
                 <TextInput style={styles.editInput} value={editingAmount} onChangeText={setEditingAmount} />
-                <TextInput style={styles.editInput} value={editingCategoryId} onChangeText={setEditingCategoryId} />
+                <View style={styles.categoryRow}>
+                  {sortedCategories.map((category) => (
+                    <Pressable
+                      key={category.id}
+                      style={[
+                        styles.categoryChip,
+                        category.type === 'EXPENSE' ? styles.categoryChipExpense : styles.categoryChipIncome,
+                        editingCategoryId === category.id && styles.categoryChipActive,
+                      ]}
+                      onPress={() => setEditingCategoryId(category.id)}
+                    >
+                      <Text
+                        style={
+                          editingCategoryId === category.id
+                            ? styles.categoryChipTextActive
+                            : styles.categoryChipText
+                        }
+                      >
+                        {category.name}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                {sortedCategories.length === 0 ? (
+                  <Text style={styles.helperText}>카테고리를 먼저 추가해 주세요.</Text>
+                ) : null}
                 <TextInput style={styles.editInput} value={editingMemo} onChangeText={setEditingMemo} />
                 <TextInput style={styles.editInput} value={editingOccurredAt} onChangeText={setEditingOccurredAt} />
                 <View style={styles.actions}>
@@ -200,7 +269,8 @@ export function TransactionScreen() {
                     {item.type === 'EXPENSE' ? '지출' : '수입'} {item.amount.toLocaleString()}원
                   </Text>
                   <Text style={styles.itemMeta}>
-                    카테고리 {item.categoryId} · {dayjs(item.occurredAt).format('YYYY-MM-DD')}
+                    {categoryMap.get(item.categoryId)?.name ?? `카테고리 ${item.categoryId}`} ·{' '}
+                    {dayjs(item.occurredAt).format('YYYY-MM-DD')}
                   </Text>
                 </View>
                 <View style={styles.actions}>
@@ -253,6 +323,52 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 12,
     flexWrap: 'wrap',
+  },
+  categorySection: {
+    marginBottom: 12,
+  },
+  categoryLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 8,
+    color: '#0f172a',
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  categoryChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#cbd5f5',
+  },
+  categoryChipExpense: {
+    backgroundColor: '#fff1f2',
+    borderColor: '#fecdd3',
+  },
+  categoryChipIncome: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#bbf7d0',
+  },
+  categoryChipActive: {
+    backgroundColor: '#0f172a',
+    borderColor: '#0f172a',
+  },
+  categoryChipText: {
+    color: '#0f172a',
+    fontWeight: '600',
+  },
+  categoryChipTextActive: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  helperText: {
+    marginTop: 8,
+    color: '#64748b',
+    fontSize: 12,
   },
   typeChip: {
     paddingHorizontal: 12,

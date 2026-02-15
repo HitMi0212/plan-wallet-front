@@ -17,6 +17,21 @@ export function StatsScreen() {
   const [year, setYear] = useState(today.year());
   const [month, setMonth] = useState(today.month() + 1);
 
+  const moveMonth = (delta: number) => {
+    setMonth((currentMonth) => {
+      const nextMonth = currentMonth + delta;
+      if (nextMonth < 1) {
+        setYear((currentYear) => currentYear - 1);
+        return 12;
+      }
+      if (nextMonth > 12) {
+        setYear((currentYear) => currentYear + 1);
+        return 1;
+      }
+      return nextMonth;
+    });
+  };
+
   useEffect(() => {
     load(year, month);
   }, [load, year, month]);
@@ -44,11 +59,11 @@ export function StatsScreen() {
       <Text style={styles.title}>통계</Text>
 
       <View style={styles.controls}>
-        <Pressable style={styles.controlButton} onPress={() => setMonth((m) => (m === 1 ? 12 : m - 1))}>
+        <Pressable style={styles.controlButton} onPress={() => moveMonth(-1)}>
           <Text style={styles.controlText}>이전</Text>
         </Pressable>
         <Text style={styles.controlLabel}>{year}년 {month}월</Text>
-        <Pressable style={styles.controlButton} onPress={() => setMonth((m) => (m === 12 ? 1 : m + 1))}>
+        <Pressable style={styles.controlButton} onPress={() => moveMonth(1)}>
           <Text style={styles.controlText}>다음</Text>
         </Pressable>
       </View>
