@@ -9,6 +9,8 @@ interface TextFieldProps {
   secureTextEntry?: boolean;
   errorMessage?: string;
   keyboardType?: 'default' | 'email-address';
+  multiline?: boolean;
+  numberOfLines?: number;
 }
 
 export function TextField({
@@ -19,18 +21,23 @@ export function TextField({
   secureTextEntry,
   errorMessage,
   keyboardType = 'default',
+  multiline = false,
+  numberOfLines,
 }: TextFieldProps) {
   return (
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
-        style={[styles.input, errorMessage ? styles.inputError : null]}
+        style={[styles.input, multiline ? styles.multilineInput : null, errorMessage ? styles.inputError : null]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
         secureTextEntry={secureTextEntry}
         keyboardType={keyboardType}
         autoCapitalize="none"
+        multiline={multiline}
+        numberOfLines={numberOfLines}
+        textAlignVertical={multiline ? 'top' : 'center'}
       />
       {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
     </View>
@@ -53,6 +60,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
+  },
+  multilineInput: {
+    minHeight: 90,
   },
   inputError: {
     borderColor: '#ef4444',

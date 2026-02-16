@@ -133,9 +133,21 @@ export function HomeScreen({ navigation }: { navigation: any }) {
   const heroSub = isCurrentMonth
     ? `${monthLabel} 수입 - 전체지출(예적금/투자 포함)`
     : `${monthLabel} 지출 합계`;
+  const categoryUsageCountMap = useMemo(() => {
+    const map = new Map<number, number>();
+    items.forEach((item) => {
+      map.set(item.categoryId, (map.get(item.categoryId) ?? 0) + 1);
+    });
+    return map;
+  }, [items]);
   const sortedCategories = useMemo(
-    () => [...categories].sort((a, b) => a.name.localeCompare(b.name)),
-    [categories]
+    () =>
+      [...categories].sort((a, b) => {
+        const usageDiff = (categoryUsageCountMap.get(b.id) ?? 0) - (categoryUsageCountMap.get(a.id) ?? 0);
+        if (usageDiff !== 0) return usageDiff;
+        return a.name.localeCompare(b.name);
+      }),
+    [categories, categoryUsageCountMap]
   );
   const addCategories = useMemo(
     () => sortedCategories.filter((category) => category.type === type),
@@ -445,7 +457,14 @@ export function HomeScreen({ navigation }: { navigation: any }) {
                   <Text style={styles.helperText}>{type === 'EXPENSE' ? '지출' : '수입'} 카테고리를 먼저 추가해 주세요.</Text>
                 ) : null}
               </View>
-              <TextField label="메모" value={memo} onChangeText={setMemo} placeholder="예: 점심" />
+              <TextField
+                label="메모"
+                value={memo}
+                onChangeText={setMemo}
+                placeholder="예: 점심\n영수증 참고"
+                multiline
+                numberOfLines={3}
+              />
               <TextField
                 label="발생일"
                 value={occurredDateInput}
