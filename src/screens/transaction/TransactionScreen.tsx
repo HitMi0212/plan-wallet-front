@@ -38,8 +38,7 @@ export function TransactionScreen() {
   const [amount, setAmount] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [memo, setMemo] = useState('');
-  const [occurredAt, setOccurredAt] = useState(dayjs().toISOString());
-  const [showOccurredDatePicker, setShowOccurredDatePicker] = useState(false);
+  const [occurredDateInput, setOccurredDateInput] = useState(dayjs().format('YYYY-MM-DD'));
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(dayjs().startOf('day'));
   const [calendarMonth, setCalendarMonth] = useState(dayjs().startOf('month'));
@@ -94,7 +93,6 @@ export function TransactionScreen() {
     [sortedCategories, editingType]
   );
 
-  const occurredDate = dayjs(occurredAt).isValid() ? dayjs(occurredAt).toDate() : new Date();
   const editingOccurredDate = dayjs(editingOccurredAt).isValid()
     ? dayjs(editingOccurredAt).toDate()
     : new Date();
@@ -104,8 +102,14 @@ export function TransactionScreen() {
     setAmount('');
     setSelectedCategoryId(null);
     setMemo('');
-    setOccurredAt(baseDate.hour(12).minute(0).second(0).millisecond(0).toISOString());
-    setShowOccurredDatePicker(false);
+    setOccurredDateInput(baseDate.format('YYYY-MM-DD'));
+  };
+  const parseDateInputToIso = (value: string) => {
+    const normalized = value.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return null;
+    const parsed = dayjs(normalized);
+    if (!parsed.isValid() || parsed.format('YYYY-MM-DD') !== normalized) return null;
+    return parsed.hour(12).minute(0).second(0).millisecond(0).toISOString();
   };
 
   const moveCalendarMonth = (delta: number) => {
@@ -174,13 +178,18 @@ export function TransactionScreen() {
       Alert.alert('입력 오류', '카테고리를 선택해 주세요.');
       return;
     }
+    const parsedOccurredAt = parseDateInputToIso(occurredDateInput);
+    if (!parsedOccurredAt) {
+      Alert.alert('입력 오류', '발생일은 YYYY-MM-DD 형식으로 입력해 주세요.');
+      return;
+    }
 
     await add({
       type,
       amount: parsedAmount,
       categoryId: parsedCategory,
       memo: memo.trim() || null,
-      occurredAt,
+      occurredAt: parsedOccurredAt,
     });
 
     setAddModalVisible(false);
@@ -467,27 +476,12 @@ export function TransactionScreen() {
                 ) : null}
               </View>
               <TextField label="비고" value={memo} onChangeText={setMemo} placeholder="예: 점심" />
-              <View style={styles.dateField}>
-                <Text style={styles.dateFieldLabel}>발생일</Text>
-                <Pressable style={styles.dateButton} onPress={() => setShowOccurredDatePicker(true)}>
-                  <Text style={styles.dateButtonText}>{dayjs(occurredAt).format('YYYY-MM-DD')}</Text>
-                </Pressable>
-              </View>
-              {showOccurredDatePicker ? (
-                <DateTimePicker
-                  value={occurredDate}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                  onChange={(_, selectedDate) => {
-                    if (selectedDate) {
-                      setOccurredAt(dayjs(selectedDate).toISOString());
-                    }
-                    if (Platform.OS !== 'ios') {
-                      setShowOccurredDatePicker(false);
-                    }
-                  }}
-                />
-              ) : null}
+              <TextField
+                label="발생일"
+                value={occurredDateInput}
+                onChangeText={setOccurredDateInput}
+                placeholder="YYYY-MM-DD"
+              />
 
               <View style={styles.modalActions}>
                 <PrimaryButton title={loading ? '처리 중...' : '등록'} onPress={handleAdd} disabled={loading} />

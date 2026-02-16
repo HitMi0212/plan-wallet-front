@@ -1,12 +1,10 @@
 import dayjs from 'dayjs';
 import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   Alert,
   FlatList,
   Modal,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -40,8 +38,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
   const [amount, setAmount] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [memo, setMemo] = useState('');
-  const [occurredAt, setOccurredAt] = useState(dayjs().toISOString());
-  const [showOccurredDatePicker, setShowOccurredDatePicker] = useState(false);
+  const [occurredDateInput, setOccurredDateInput] = useState(dayjs().format('YYYY-MM-DD'));
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -159,7 +156,13 @@ export function HomeScreen({ navigation }: { navigation: any }) {
 
     return [...totals.values()].sort((a, b) => b.total - a.total);
   }, [monthItems, categoryMap]);
-  const occurredDate = dayjs(occurredAt).isValid() ? dayjs(occurredAt).toDate() : new Date();
+  const parseDateInputToIso = (value: string) => {
+    const normalized = value.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return null;
+    const parsed = dayjs(normalized);
+    if (!parsed.isValid() || parsed.format('YYYY-MM-DD') !== normalized) return null;
+    return parsed.hour(12).minute(0).second(0).millisecond(0).toISOString();
+  };
 
   const monthOptions = useMemo(() => {
     const keySet = new Set<string>([
@@ -189,8 +192,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
     setAmount('');
     setSelectedCategoryId(null);
     setMemo('');
-    setOccurredAt(dayjs().toISOString());
-    setShowOccurredDatePicker(false);
+    setOccurredDateInput(dayjs().format('YYYY-MM-DD'));
   };
 
   const handleAdd = async () => {
@@ -205,13 +207,18 @@ export function HomeScreen({ navigation }: { navigation: any }) {
       Alert.alert('입력 오류', '카테고리를 선택해 주세요.');
       return;
     }
+    const parsedOccurredAt = parseDateInputToIso(occurredDateInput);
+    if (!parsedOccurredAt) {
+      Alert.alert('입력 오류', '발생일은 YYYY-MM-DD 형식으로 입력해 주세요.');
+      return;
+    }
 
     await add({
       type,
       amount: parsedAmount,
       categoryId: parsedCategory,
       memo: memo.trim() || null,
-      occurredAt,
+      occurredAt: parsedOccurredAt,
     });
 
     setAddModalVisible(false);
@@ -226,6 +233,10 @@ export function HomeScreen({ navigation }: { navigation: any }) {
       setRefreshing(false);
     }
   }, [load, loadCategories]);
+
+  const closeAddModal = () => {
+    setAddModalVisible(false);
+  };
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -359,12 +370,17 @@ export function HomeScreen({ navigation }: { navigation: any }) {
         visible={addModalVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setAddModalVisible(false)}
+        onRequestClose={closeAddModal}
       >
         <View style={styles.addModalBackdrop}>
           <View style={styles.addModalCard}>
             <ScrollView contentContainerStyle={styles.addModalContentContainer}>
-              <Text style={styles.modalTitle}>거래 등록</Text>
+              <View style={styles.addModalHeader}>
+                <Text style={styles.modalTitle}>거래 등록</Text>
+                <Pressable style={styles.addModalCloseButton} onPress={closeAddModal}>
+                  <Text style={styles.addModalCloseText}>X</Text>
+                </Pressable>
+              </View>
               <View style={styles.typeRow}>
                 <Pressable
                   style={[styles.typeChip, type === 'EXPENSE' && styles.typeChipActive]}
@@ -408,30 +424,14 @@ export function HomeScreen({ navigation }: { navigation: any }) {
                 ) : null}
               </View>
               <TextField label="메모" value={memo} onChangeText={setMemo} placeholder="예: 점심" />
-              <View style={styles.dateField}>
-                <Text style={styles.dateFieldLabel}>발생일</Text>
-                <Pressable style={styles.dateButton} onPress={() => setShowOccurredDatePicker(true)}>
-                  <Text style={styles.dateButtonText}>{dayjs(occurredAt).format('YYYY-MM-DD')}</Text>
-                </Pressable>
-              </View>
-              {showOccurredDatePicker ? (
-                <DateTimePicker
-                  value={occurredDate}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                  onChange={(_, selectedDate) => {
-                    if (selectedDate) {
-                      setOccurredAt(dayjs(selectedDate).toISOString());
-                    }
-                    if (Platform.OS !== 'ios') {
-                      setShowOccurredDatePicker(false);
-                    }
-                  }}
-                />
-              ) : null}
+              <TextField
+                label="발생일"
+                value={occurredDateInput}
+                onChangeText={setOccurredDateInput}
+                placeholder="YYYY-MM-DD"
+              />
               <View style={styles.modalActions}>
                 <PrimaryButton title={loading ? '처리 중...' : '등록'} onPress={handleAdd} disabled={loading} />
-                <PrimaryButton title="취소" onPress={() => setAddModalVisible(false)} />
               </View>
             </ScrollView>
           </View>
@@ -643,6 +643,24 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     color: '#0f172a',
   },
+  addModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  addModalCloseButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e2e8f0',
+  },
+  addModalCloseText: {
+    color: '#0f172a',
+    fontSize: 12,
+    fontWeight: '800',
+  },
   monthOption: {
     paddingVertical: 10,
     paddingHorizontal: 10,
@@ -743,28 +761,6 @@ const styles = StyleSheet.create({
   categoryChipTextActive: {
     color: '#fff',
     fontWeight: '700',
-  },
-  dateField: {
-    marginBottom: 12,
-  },
-  dateFieldLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 8,
-    color: '#0f172a',
-  },
-  dateButton: {
-    borderWidth: 1,
-    borderColor: '#cbd5f5',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: '#fff',
-  },
-  dateButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#0f172a',
   },
   modalActions: {
     gap: 8,
