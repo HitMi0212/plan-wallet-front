@@ -592,6 +592,79 @@ export async function deleteLocalAssetFlowRecord(
   return toPublicAssetFlowAccount(account);
 }
 
+export async function updateLocalAssetFlowAccount(
+  userId: number,
+  accountId: number,
+  payload: {
+    type: AssetFlowType;
+    bankName: string;
+    productName: string;
+  }
+): Promise<AssetFlowAccount> {
+  const items = await readList<LocalAssetFlowAccount>(ASSET_FLOWS_KEY);
+  const categories = await readList<LocalCategory>(CATEGORIES_KEY);
+  const transactions = await readList<LocalTransaction>(TRANSACTIONS_KEY);
+  const account = items.find((item) => item.userId === userId && item.id === accountId);
+  if (!account) throw new Error('ASSET_ACCOUNT_NOT_FOUND');
+
+  account.type = payload.type;
+  account.bankName = payload.bankName.trim();
+  account.productName = payload.productName.trim();
+  account.updatedAt = nowIso();
+
+  const expenseKind = account.type === 'SAVINGS' ? 'SAVINGS' : 'INVEST';
+  let category = categories.find(
+    (item) => item.userId === userId && item.type === 'EXPENSE' && (item.expenseKind ?? 'NORMAL') === expenseKind
+  );
+  if (!category) {
+    category = {
+      id: nextId(categories),
+      userId,
+      type: 'EXPENSE',
+      expenseKind,
+      name: account.type === 'SAVINGS' ? '예적금' : '투자',
+      createdAt: account.updatedAt,
+      updatedAt: account.updatedAt,
+    };
+    categories.push(category);
+  }
+
+  account.records.forEach((record) => {
+    if (!record.transactionId) return;
+    const txn = transactions.find((item) => item.userId === userId && item.id === record.transactionId);
+    if (!txn) return;
+    txn.categoryId = category.id;
+    txn.memo =
+      record.memo?.trim() ||
+      `[${account.type === 'SAVINGS' ? '예적금' : '투자'}] ${account.bankName} ${account.productName}`;
+    txn.updatedAt = account.updatedAt;
+  });
+
+  await writeList(ASSET_FLOWS_KEY, items);
+  await writeList(CATEGORIES_KEY, categories);
+  await writeList(TRANSACTIONS_KEY, transactions);
+  return toPublicAssetFlowAccount(account);
+}
+
+export async function deleteLocalAssetFlowAccount(userId: number, accountId: number): Promise<void> {
+  const items = await readList<LocalAssetFlowAccount>(ASSET_FLOWS_KEY);
+  const account = items.find((item) => item.userId === userId && item.id === accountId);
+  if (!account) throw new Error('ASSET_ACCOUNT_NOT_FOUND');
+
+  const transactions = await readList<LocalTransaction>(TRANSACTIONS_KEY);
+  const deleteTxnIdSet = new Set<number>(
+    account.records.map((record) => record.transactionId).filter((id): id is number => typeof id === 'number')
+  );
+
+  const nextItems = items.filter((item) => !(item.userId === userId && item.id === accountId));
+  const nextTransactions = transactions.filter(
+    (txn) => !(txn.userId === userId && deleteTxnIdSet.has(txn.id))
+  );
+
+  await writeList(ASSET_FLOWS_KEY, nextItems);
+  await writeList(TRANSACTIONS_KEY, nextTransactions);
+}
+
 export async function seedDemoDataIfEmpty(userId: number): Promise<void> {
   const categories = await readList<LocalCategory>(CATEGORIES_KEY);
   const transactions = await readList<LocalTransaction>(TRANSACTIONS_KEY);

@@ -21,10 +21,12 @@ import {
   AssetFlowRecord,
   AssetFlowType,
   createLocalAssetFlowAccount,
+  deleteLocalAssetFlowAccount,
   deleteLocalAssetFlowRecord,
   getLocalAssetFlowAccounts,
   requireAuthenticatedUserId,
   syncLocalAssetFlowToTransactions,
+  updateLocalAssetFlowAccount,
   updateLocalAssetFlowRecord,
 } from '../../services/localDb';
 import { useCategoryStore } from '../../stores/categoryStore';
@@ -42,9 +44,11 @@ export function AssetFlowScreen() {
   const [accounts, setAccounts] = useState<AssetFlowAccount[]>([]);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [addAccountModalVisible, setAddAccountModalVisible] = useState(false);
+  const [editAccountModalVisible, setEditAccountModalVisible] = useState(false);
   const [addRecordModalVisible, setAddRecordModalVisible] = useState(false);
   const [recordTargetId, setRecordTargetId] = useState<number | null>(null);
   const [recordEditId, setRecordEditId] = useState<number | null>(null);
+  const [editingAccountId, setEditingAccountId] = useState<number | null>(null);
 
   const [type, setType] = useState<AssetFlowType>('SAVINGS');
   const [bankName, setBankName] = useState('');
@@ -189,6 +193,49 @@ export function AssetFlowScreen() {
     ]);
   };
 
+  const openEditAccountModal = (account: AssetFlowAccount) => {
+    setEditingAccountId(account.id);
+    setType(account.type);
+    setBankName(account.bankName);
+    setProductName(account.productName);
+    setEditAccountModalVisible(true);
+  };
+
+  const handleUpdateAccount = async () => {
+    if (editingAccountId === null) return;
+    if (!bankName.trim() || !productName.trim()) {
+      Alert.alert('입력 오류', '은행명과 상품명을 입력해 주세요.');
+      return;
+    }
+    const userId = await requireAuthenticatedUserId();
+    await updateLocalAssetFlowAccount(userId, editingAccountId, {
+      type,
+      bankName,
+      productName,
+    });
+    setEditAccountModalVisible(false);
+    setEditingAccountId(null);
+    await loadAccounts();
+    await Promise.all([loadTransactions(), loadCategories()]);
+  };
+
+  const handleDeleteAccount = async (accountId: number) => {
+    Alert.alert('삭제 확인', '상품과 모든 입금 내역을 삭제할까요?', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '삭제',
+        style: 'destructive',
+        onPress: async () => {
+          const userId = await requireAuthenticatedUserId();
+          await deleteLocalAssetFlowAccount(userId, accountId);
+          if (expandedId === accountId) setExpandedId(null);
+          await loadAccounts();
+          await Promise.all([loadTransactions(), loadCategories()]);
+        },
+      },
+    ]);
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.topRow}>
@@ -223,7 +270,9 @@ export function AssetFlowScreen() {
             <Pressable
               key={account.id}
               style={styles.item}
-              onPress={() => setExpandedId((prev) => (prev === account.id ? null : account.id))}
+              onPress={() => {
+                setExpandedId((prev) => (prev === account.id ? null : account.id));
+              }}
             >
               <View style={styles.itemTop}>
                 <View>
@@ -239,7 +288,17 @@ export function AssetFlowScreen() {
 
               {isExpanded ? (
                 <View style={styles.expandArea}>
-                  <PrimaryButton title="입금 내역 추가" onPress={() => openAddRecordModal(account.id)} />
+                  <View style={styles.accountActionRow}>
+                    <Pressable style={[styles.accountActionButton, styles.accountEditButton]} onPress={() => openEditAccountModal(account)}>
+                      <Text style={styles.accountActionText}>상품 수정</Text>
+                    </Pressable>
+                    <Pressable style={[styles.accountActionButton, styles.accountDeleteButton]} onPress={() => handleDeleteAccount(account.id)}>
+                      <Text style={styles.accountActionText}>상품 삭제</Text>
+                    </Pressable>
+                  </View>
+                  <Pressable style={styles.addRecordButton} onPress={() => openAddRecordModal(account.id)}>
+                    <Text style={styles.addRecordButtonText}>입금 내역 추가</Text>
+                  </Pressable>
                   {records.map((record) => (
                     <View key={record.id} style={styles.recordRow}>
                       <View>
@@ -320,6 +379,47 @@ export function AssetFlowScreen() {
               <View style={styles.modalActions}>
                 <PrimaryButton title="등록" onPress={handleCreateAccount} />
                 <PrimaryButton title="취소" onPress={() => setAddAccountModalVisible(false)} />
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={editAccountModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEditAccountModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <ScrollView contentContainerStyle={styles.modalContentContainer}>
+              <Text style={styles.modalTitle}>상품 수정</Text>
+              <View style={styles.typeRow}>
+                {typeOptions.map((option) => (
+                  <Pressable
+                    key={option.value}
+                    style={[styles.typeChip, type === option.value && styles.typeChipActive]}
+                    onPress={() => setType(option.value)}
+                  >
+                    <Text style={type === option.value ? styles.typeChipTextActive : styles.typeChipText}>
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              <TextField label="은행" value={bankName} onChangeText={setBankName} placeholder="예: 신한은행" />
+              <TextField label="상품명" value={productName} onChangeText={setProductName} placeholder="예: 청년희망적금" />
+              <View style={styles.modalActions}>
+                <PrimaryButton title="저장" onPress={handleUpdateAccount} />
+                <PrimaryButton
+                  title="취소"
+                  onPress={() => {
+                    setEditAccountModalVisible(false);
+                    setEditingAccountId(null);
+                    resetForm();
+                  }}
+                />
               </View>
             </ScrollView>
           </View>
@@ -462,6 +562,40 @@ const styles = StyleSheet.create({
     borderTopColor: '#e2e8f0',
     paddingTop: 10,
     gap: 8,
+  },
+  accountActionRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  accountActionButton: {
+    flex: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  accountEditButton: {
+    backgroundColor: '#1e293b',
+  },
+  accountDeleteButton: {
+    backgroundColor: '#dc2626',
+  },
+  accountActionText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  addRecordButton: {
+    borderWidth: 1,
+    borderColor: '#2563eb',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  addRecordButtonText: {
+    color: '#2563eb',
+    fontSize: 14,
+    fontWeight: '700',
   },
   recordRow: {
     flexDirection: 'row',
