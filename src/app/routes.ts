@@ -9,4 +9,5 @@ export type MainTabParamList = {
   Transactions: undefined;
   Stats: undefined;
   Settings: undefined;
+  AssetFlows: undefined;
 };

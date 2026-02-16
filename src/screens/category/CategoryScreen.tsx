@@ -1,4 +1,5 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Alert,
   FlatList,
@@ -14,7 +15,7 @@ import { ErrorBanner } from '../../components/ErrorBanner';
 import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { TextField } from '../../components/TextField';
-import { CategoryType } from '../../services/categoryApi';
+import { CategoryType, ExpenseCategoryKind } from '../../services/categoryApi';
 import { useCategoryStore } from '../../stores/categoryStore';
 
 const typeOptions: { label: string; value: CategoryType }[] = [
@@ -22,44 +23,93 @@ const typeOptions: { label: string; value: CategoryType }[] = [
   { label: '수입', value: 'INCOME' },
 ];
 
+const expenseKindOptions: { label: string; value: ExpenseCategoryKind }[] = [
+  { label: '일반', value: 'NORMAL' },
+  { label: '예적금', value: 'SAVINGS' },
+  { label: '투자', value: 'INVEST' },
+];
+
+type CategoryFilter = 'ALL' | ExpenseCategoryKind;
+
+const filterOptions: { label: string; value: CategoryFilter }[] = [
+  { label: '전체', value: 'ALL' },
+  { label: '일반', value: 'NORMAL' },
+  { label: '예적금', value: 'SAVINGS' },
+  { label: '투자', value: 'INVEST' },
+];
+const FILTER_STORAGE_KEY = 'plan-wallet.category.filter';
+
+function expenseKindLabel(kind?: ExpenseCategoryKind) {
+  if (kind === 'SAVINGS') return '예적금';
+  if (kind === 'INVEST') return '투자';
+  return '일반';
+}
+
 export function CategoryScreen() {
   const { items, loading, error, load, add, update, remove } = useCategoryStore();
 
   const [name, setName] = useState('');
   const [type, setType] = useState<CategoryType>('EXPENSE');
+  const [expenseKind, setExpenseKind] = useState<ExpenseCategoryKind>('NORMAL');
+  const [filter, setFilter] = useState<CategoryFilter>('ALL');
+
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState('');
+  const [editingExpenseKind, setEditingExpenseKind] = useState<ExpenseCategoryKind>('NORMAL');
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const sortedItems = useMemo(
-    () => [...items].sort((a, b) => a.name.localeCompare(b.name)),
-    [items]
-  );
+  useEffect(() => {
+    (async () => {
+      const stored = await AsyncStorage.getItem(FILTER_STORAGE_KEY);
+      if (!stored) return;
+      if (filterOptions.some((option) => option.value === stored)) {
+        setFilter(stored as CategoryFilter);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    AsyncStorage.setItem(FILTER_STORAGE_KEY, filter);
+  }, [filter]);
+
+  const sortedItems = useMemo(() => {
+    const filtered =
+      filter === 'ALL'
+        ? items
+        : items.filter((item) => item.type === 'EXPENSE' && (item.expenseKind ?? 'NORMAL') === filter);
+
+    return [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+  }, [items, filter]);
 
   const handleAdd = async () => {
     if (!name.trim()) {
       Alert.alert('입력 오류', '카테고리 이름을 입력해 주세요.');
       return;
     }
-    await add({ name: name.trim(), type });
+    await add({
+      name: name.trim(),
+      type,
+      expenseKind: type === 'EXPENSE' ? expenseKind : 'NORMAL',
+    });
     setName('');
   };
 
-  const startEdit = (id: number, currentName: string) => {
+  const startEdit = (id: number, currentName: string, currentType: CategoryType, currentExpenseKind?: ExpenseCategoryKind) => {
     setEditingId(id);
     setEditingName(currentName);
+    setEditingExpenseKind(currentType === 'EXPENSE' ? currentExpenseKind ?? 'NORMAL' : 'NORMAL');
   };
 
-  const handleUpdate = async () => {
+  const handleUpdate = async (currentType: CategoryType) => {
     if (editingId === null) return;
     if (!editingName.trim()) {
       Alert.alert('입력 오류', '카테고리 이름을 입력해 주세요.');
       return;
     }
-    await update(editingId, editingName.trim());
+    await update(editingId, editingName.trim(), currentType === 'EXPENSE' ? editingExpenseKind : 'NORMAL');
     setEditingId(null);
     setEditingName('');
   };
@@ -73,8 +123,6 @@ export function CategoryScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>카테고리</Text>
-
       <View style={styles.formCard}>
         <Text style={styles.sectionTitle}>새 카테고리</Text>
         <View style={styles.typeRow}>
@@ -90,6 +138,22 @@ export function CategoryScreen() {
             </Pressable>
           ))}
         </View>
+        {type === 'EXPENSE' ? (
+          <View style={styles.typeRow}>
+            {expenseKindOptions.map((option) => (
+              <Pressable
+                key={option.value}
+                style={[styles.typeChip, expenseKind === option.value && styles.typeChipActive]}
+                onPress={() => setExpenseKind(option.value)}
+              >
+                <Text style={expenseKind === option.value ? styles.typeChipTextActive : styles.typeChipText}>
+                  {option.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
         <TextField label="카테고리 이름" value={name} onChangeText={setName} placeholder="예: 식비" />
         <PrimaryButton title={loading ? '처리 중...' : '추가'} onPress={handleAdd} disabled={loading} />
       </View>
@@ -102,6 +166,19 @@ export function CategoryScreen() {
           <Text style={styles.refreshText}>새로고침</Text>
         </Pressable>
       </View>
+      <View style={styles.typeRow}>
+        {filterOptions.map((option) => (
+          <Pressable
+            key={option.value}
+            style={[styles.typeChip, filter === option.value && styles.typeChipActive]}
+            onPress={() => setFilter(option.value)}
+          >
+            <Text style={filter === option.value ? styles.typeChipTextActive : styles.typeChipText}>
+              {option.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
 
       <FlatList
         data={sortedItems}
@@ -111,33 +188,57 @@ export function CategoryScreen() {
         renderItem={({ item }) => (
           <View style={styles.listItem}>
             {editingId === item.id ? (
-              <View style={styles.editRow}>
-                <TextInput
-                  style={styles.editInput}
-                  value={editingName}
-                  onChangeText={setEditingName}
-                />
-                <Pressable style={styles.actionButton} onPress={handleUpdate}>
-                  <Text style={styles.actionText}>저장</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.actionButton, styles.cancelButton]}
-                  onPress={() => {
-                    setEditingId(null);
-                    setEditingName('');
-                  }}
-                >
-                  <Text style={styles.actionText}>취소</Text>
-                </Pressable>
+              <View style={styles.editBox}>
+                <TextInput style={styles.editInput} value={editingName} onChangeText={setEditingName} />
+                {item.type === 'EXPENSE' ? (
+                  <View style={styles.typeRow}>
+                    {expenseKindOptions.map((option) => (
+                      <Pressable
+                        key={option.value}
+                        style={[styles.typeChip, editingExpenseKind === option.value && styles.typeChipActive]}
+                        onPress={() => setEditingExpenseKind(option.value)}
+                      >
+                        <Text
+                          style={
+                            editingExpenseKind === option.value ? styles.typeChipTextActive : styles.typeChipText
+                          }
+                        >
+                          {option.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
+                <View style={styles.actions}>
+                  <Pressable style={styles.actionButton} onPress={() => handleUpdate(item.type)}>
+                    <Text style={styles.actionText}>저장</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.actionButton, styles.cancelButton]}
+                    onPress={() => {
+                      setEditingId(null);
+                      setEditingName('');
+                    }}
+                  >
+                    <Text style={styles.actionText}>취소</Text>
+                  </Pressable>
+                </View>
               </View>
             ) : (
               <>
                 <View>
                   <Text style={styles.itemName}>{item.name}</Text>
-                  <Text style={styles.itemType}>{item.type === 'EXPENSE' ? '지출' : '수입'}</Text>
+                  <Text style={styles.itemType}>
+                    {item.type === 'EXPENSE'
+                      ? `지출 · ${expenseKindLabel(item.expenseKind)}`
+                      : '수입'}
+                  </Text>
                 </View>
                 <View style={styles.actions}>
-                  <Pressable style={styles.actionButton} onPress={() => startEdit(item.id, item.name)}>
+                  <Pressable
+                    style={styles.actionButton}
+                    onPress={() => startEdit(item.id, item.name, item.type, item.expenseKind)}
+                  >
                     <Text style={styles.actionText}>수정</Text>
                   </Pressable>
                   <Pressable
@@ -163,11 +264,6 @@ const styles = StyleSheet.create({
     padding: 24,
     backgroundColor: '#f8fafc',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    marginBottom: 16,
-  },
   formCard: {
     backgroundColor: '#fff',
     padding: 16,
@@ -185,6 +281,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     marginBottom: 12,
+    flexWrap: 'wrap',
   },
   typeChip: {
     paddingHorizontal: 12,
@@ -265,23 +362,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  editRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  editBox: {
     flex: 1,
+    gap: 8,
   },
   editInput: {
-    flex: 1,
     borderWidth: 1,
     borderColor: '#cbd5f5',
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
-  },
-  empty: {
-    textAlign: 'center',
-    color: '#64748b',
-    marginTop: 20,
   },
 });

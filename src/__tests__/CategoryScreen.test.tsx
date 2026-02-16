@@ -18,7 +18,7 @@ jest.mock('../stores/categoryStore', () => ({
 describe('CategoryScreen', () => {
   it('renders empty state', () => {
     const { getByText } = render(<CategoryScreen />);
-    expect(getByText('카테고리')).toBeTruthy();
+    expect(getByText('새 카테고리')).toBeTruthy();
     expect(getByText('등록된 카테고리가 없습니다.')).toBeTruthy();
   });
 });

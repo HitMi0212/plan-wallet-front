@@ -1,10 +1,9 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import dayjs from 'dayjs';
 import React, { useEffect } from 'react';
 
-import { LoginScreen } from '../screens/auth/LoginScreen';
-import { SignUpScreen } from '../screens/auth/SignUpScreen';
+import { AssetFlowScreen } from '../screens/assets/AssetFlowScreen';
 import { CategoryScreen } from '../screens/category/CategoryScreen';
 import { BootScreen } from '../screens/common/BootScreen';
 import { HomeScreen } from '../screens/main/HomeScreen';
@@ -12,34 +11,32 @@ import { SettingsScreen } from '../screens/settings/SettingsScreen';
 import { StatsScreen } from '../screens/stats/StatsScreen';
 import { TransactionScreen } from '../screens/transaction/TransactionScreen';
 import { useAuthStore } from '../stores/authStore';
-import { AuthStackParamList, MainTabParamList } from './routes';
+import { MainTabParamList } from './routes';
 
-const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const MainTabs = createBottomTabNavigator<MainTabParamList>();
 
-function AuthNavigator() {
-  return (
-    <AuthStack.Navigator initialRouteName="Login">
-      <AuthStack.Screen name="Login" component={LoginScreen} options={{ title: '로그인' }} />
-      <AuthStack.Screen name="SignUp" component={SignUpScreen} options={{ title: '회원가입' }} />
-    </AuthStack.Navigator>
-  );
-}
-
 function MainTabNavigator() {
+  const monthTitle = `${dayjs().year()}년 ${dayjs().month() + 1}월`;
+
   return (
-    <MainTabs.Navigator initialRouteName="Home">
-      <MainTabs.Screen name="Home" component={HomeScreen} options={{ title: '홈' }} />
-      <MainTabs.Screen name="Transactions" component={TransactionScreen} options={{ title: '거래' }} />
-      <MainTabs.Screen name="Categories" component={CategoryScreen} options={{ title: '카테고리' }} />
-      <MainTabs.Screen name="Stats" component={StatsScreen} options={{ title: '통계' }} />
-      <MainTabs.Screen name="Settings" component={SettingsScreen} options={{ title: '설정' }} />
+    <MainTabs.Navigator
+      initialRouteName="Home"
+      screenOptions={{
+        headerTitle: monthTitle,
+        headerTitleAlign: 'center',
+      }}
+    >
+      <MainTabs.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: '홈' }} />
+      <MainTabs.Screen name="Transactions" component={TransactionScreen} options={{ tabBarLabel: '거래' }} />
+      <MainTabs.Screen name="Categories" component={CategoryScreen} options={{ tabBarLabel: '카테고리' }} />
+      <MainTabs.Screen name="Stats" component={StatsScreen} options={{ tabBarLabel: '통계' }} />
+      <MainTabs.Screen name="AssetFlows" component={AssetFlowScreen} options={{ tabBarLabel: '예적금/투자' }} />
+      <MainTabs.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: '설정' }} />
     </MainTabs.Navigator>
   );
 }
 
 export function AppNavigator() {
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isHydrated = useAuthStore((state) => state.isHydrated);
   const hydrate = useAuthStore((state) => state.hydrate);
 
@@ -51,5 +48,5 @@ export function AppNavigator() {
     return <BootScreen />;
   }
 
-  return <NavigationContainer>{isAuthenticated ? <MainTabNavigator /> : <AuthNavigator />}</NavigationContainer>;
+  return <NavigationContainer><MainTabNavigator /></NavigationContainer>;
 }

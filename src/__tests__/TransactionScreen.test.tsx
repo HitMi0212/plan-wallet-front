@@ -18,7 +18,7 @@ jest.mock('../stores/transactionStore', () => ({
 describe('TransactionScreen', () => {
   it('renders empty state', () => {
     const { getByText } = render(<TransactionScreen />);
-    expect(getByText('거래')).toBeTruthy();
+    expect(getByText('새 거래')).toBeTruthy();
     expect(getByText('거래 내역이 없습니다.')).toBeTruthy();
   });
 });

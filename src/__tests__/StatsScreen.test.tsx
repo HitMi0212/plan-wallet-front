@@ -17,7 +17,7 @@ jest.mock('../stores/statsStore', () => ({
 describe('StatsScreen', () => {
   it('renders empty state when no data', () => {
     const { getByText } = render(<StatsScreen />);
-    expect(getByText('통계')).toBeTruthy();
+    expect(getByText('이전')).toBeTruthy();
     expect(getByText('통계 데이터가 없습니다.')).toBeTruthy();
   });
 });

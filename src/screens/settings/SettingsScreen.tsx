@@ -1,13 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
+import { TextField } from '../../components/TextField';
 import { exportBackupFile, importBackupFile } from '../../services/backupService';
 import { useAuthStore } from '../../stores/authStore';
 
 export function SettingsScreen() {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const login = useAuthStore((state) => state.login);
+  const signUp = useAuthStore((state) => state.signUp);
   const logout = useAuthStore((state) => state.logout);
   const hydrate = useAuthStore((state) => state.hydrate);
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [nickname, setNickname] = useState('');
 
   const handleExport = async () => {
     try {
@@ -35,15 +43,69 @@ export function SettingsScreen() {
     }
   };
 
+  const handleLogin = async () => {
+    if (!email.trim() || !password.trim()) {
+      Alert.alert('입력 오류', '이메일과 비밀번호를 입력해 주세요.');
+      return;
+    }
+
+    try {
+      await login(email.trim(), password);
+      Alert.alert('로그인 완료', '설정에서 로그인되었습니다.');
+    } catch (error) {
+      Alert.alert('로그인 실패', '이메일 또는 비밀번호를 확인해 주세요.');
+    }
+  };
+
+  const handleSignUp = async () => {
+    if (!email.trim() || !password.trim() || !nickname.trim()) {
+      Alert.alert('입력 오류', '이메일, 비밀번호, 닉네임을 입력해 주세요.');
+      return;
+    }
+
+    try {
+      await signUp(email.trim(), password, nickname.trim());
+      Alert.alert('회원가입 완료', '설정에서 회원가입 후 로그인되었습니다.');
+    } catch (error) {
+      Alert.alert('회원가입 실패', '이미 존재하는 이메일이거나 입력값이 올바르지 않습니다.');
+    }
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>설정</Text>
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>로그인</Text>
+        <Text style={styles.statusText}>{isAuthenticated ? '현재 상태: 로그인됨' : '현재 상태: 비로그인(게스트)'}</Text>
+        <TextField
+          label="이메일"
+          value={email}
+          onChangeText={setEmail}
+          placeholder="user@example.com"
+          keyboardType="email-address"
+        />
+        <TextField
+          label="비밀번호"
+          value={password}
+          onChangeText={setPassword}
+          placeholder="비밀번호"
+          secureTextEntry
+        />
+        <TextField
+          label="닉네임(회원가입용)"
+          value={nickname}
+          onChangeText={setNickname}
+          placeholder="닉네임"
+        />
+        <PrimaryButton title="로그인" onPress={handleLogin} />
+        <PrimaryButton title="회원가입" onPress={handleSignUp} />
+        <PrimaryButton title="로그아웃" onPress={logout} />
+      </View>
+
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>데이터 관리</Text>
         <PrimaryButton title="데이터 백업 파일 만들기" onPress={handleExport} />
         <PrimaryButton title="백업 파일 가져오기" onPress={handleImport} />
       </View>
-      <PrimaryButton title="로그아웃" onPress={logout} />
     </View>
   );
 }
@@ -54,11 +116,6 @@ const styles = StyleSheet.create({
     padding: 24,
     backgroundColor: '#f8fafc',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    marginBottom: 16,
-  },
   card: {
     backgroundColor: '#fff',
     borderRadius: 12,
@@ -66,11 +123,16 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
     padding: 16,
     marginBottom: 16,
-    gap: 12,
+    gap: 8,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 4,
+  },
+  statusText: {
+    fontSize: 13,
+    color: '#475569',
+    marginBottom: 2,
   },
 });

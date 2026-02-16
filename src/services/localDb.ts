@@ -53,7 +53,10 @@ async function writeList<T>(key: string, items: T[]) {
 
 function toPublicCategory(item: LocalCategory): Category {
   const { userId, ...category } = item;
-  return category;
+  return {
+    ...category,
+    expenseKind: category.type === 'EXPENSE' ? category.expenseKind ?? 'NORMAL' : 'NORMAL',
+  };
 }
 
 function toPublicTransaction(item: LocalTransaction): Transaction {
@@ -71,9 +74,7 @@ function parseUserIdFromAccessToken(token: string | null): number | null {
 export async function requireAuthenticatedUserId(): Promise<number> {
   const { accessToken } = await loadTokens();
   const userId = parseUserIdFromAccessToken(accessToken);
-  if (!userId) {
-    throw new Error('UNAUTHENTICATED');
-  }
+  if (!userId) return 0;
   return userId;
 }
 
@@ -129,6 +130,7 @@ export async function createLocalCategory(
     id: nextId(items),
     userId,
     type: payload.type,
+    expenseKind: payload.type === 'EXPENSE' ? payload.expenseKind ?? 'NORMAL' : 'NORMAL',
     name: payload.name.trim(),
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -151,6 +153,11 @@ export async function updateLocalCategory(
   }
 
   target.name = payload.name.trim();
+  if (target.type === 'EXPENSE') {
+    target.expenseKind = payload.expenseKind ?? target.expenseKind ?? 'NORMAL';
+  } else {
+    target.expenseKind = 'NORMAL';
+  }
   target.updatedAt = nowIso();
   await writeList(CATEGORIES_KEY, items);
   return toPublicCategory(target);

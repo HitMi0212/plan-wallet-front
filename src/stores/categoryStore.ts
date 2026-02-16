@@ -1,6 +1,6 @@
 ﻿import { create } from 'zustand';
 
-import { Category, CategoryCreateRequest } from '../services/categoryApi';
+import { Category, CategoryCreateRequest, ExpenseCategoryKind } from '../services/categoryApi';
 import { createCategory, deleteCategory, fetchCategories, updateCategory } from '../services/categoryClient';
 
 interface CategoryState {
@@ -9,7 +9,7 @@ interface CategoryState {
   error: string | null;
   load: () => Promise<void>;
   add: (payload: CategoryCreateRequest) => Promise<void>;
-  update: (id: number, name: string) => Promise<void>;
+  update: (id: number, name: string, expenseKind?: ExpenseCategoryKind) => Promise<void>;
   remove: (id: number) => Promise<void>;
 }
 
@@ -38,10 +38,10 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
     }
   },
 
-  update: async (id, name) => {
+  update: async (id, name, expenseKind) => {
     set({ loading: true, error: null });
     try {
-      const updated = await updateCategory(id, { name });
+      const updated = await updateCategory(id, { name, expenseKind });
       set({
         items: get().items.map((item) => (item.id === id ? updated : item)),
         loading: false,

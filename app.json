@@ -14,7 +14,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.hitmi.planwallet"
+      "bundleIdentifier": "com.hitmi.planwallet",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -26,6 +29,14 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "8b4a486a-b038-4ce4-b7ec-9a0364063cd7"
+      }
+    },
+    "plugins": [
+      "@react-native-community/datetimepicker"
+    ]
   }
 }

@@ -1,8 +1,10 @@
-﻿import dayjs from 'dayjs';
+import dayjs from 'dayjs';
 import React, { useEffect, useMemo, useState } from 'react';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   Alert,
   FlatList,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -34,11 +36,13 @@ export function TransactionScreen() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [memo, setMemo] = useState('');
   const [occurredAt, setOccurredAt] = useState(dayjs().toISOString());
+  const [showOccurredDatePicker, setShowOccurredDatePicker] = useState(false);
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingAmount, setEditingAmount] = useState('');
   const [editingMemo, setEditingMemo] = useState('');
   const [editingOccurredAt, setEditingOccurredAt] = useState('');
+  const [showEditingOccurredDatePicker, setShowEditingOccurredDatePicker] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [editingType, setEditingType] = useState<TransactionType>('EXPENSE');
 
@@ -66,6 +70,11 @@ export function TransactionScreen() {
     [categories]
   );
 
+  const occurredDate = dayjs(occurredAt).isValid() ? dayjs(occurredAt).toDate() : new Date();
+  const editingOccurredDate = dayjs(editingOccurredAt).isValid()
+    ? dayjs(editingOccurredAt).toDate()
+    : new Date();
+
   const handleAdd = async () => {
     const parsedAmount = Number(amount);
     const parsedCategory = selectedCategoryId ?? 0;
@@ -91,6 +100,7 @@ export function TransactionScreen() {
     setSelectedCategoryId(null);
     setMemo('');
     setOccurredAt(dayjs().toISOString());
+    setShowOccurredDatePicker(false);
   };
 
   const startEdit = (id: number) => {
@@ -102,6 +112,7 @@ export function TransactionScreen() {
     setEditingCategoryId(target.categoryId);
     setEditingMemo(target.memo ?? '');
     setEditingOccurredAt(target.occurredAt);
+    setShowEditingOccurredDatePicker(false);
   };
 
   const handleUpdate = async () => {
@@ -127,6 +138,7 @@ export function TransactionScreen() {
     });
 
     setEditingId(null);
+    setShowEditingOccurredDatePicker(false);
   };
 
   const handleDelete = (id: number) => {
@@ -138,8 +150,6 @@ export function TransactionScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>거래</Text>
-
       <View style={styles.formCard}>
         <Text style={styles.sectionTitle}>새 거래</Text>
         <View style={styles.typeRow}>
@@ -184,12 +194,29 @@ export function TransactionScreen() {
           ) : null}
         </View>
         <TextField label="메모" value={memo} onChangeText={setMemo} placeholder="예: 점심" />
-        <TextField
-          label="발생 일시(ISO)"
-          value={occurredAt}
-          onChangeText={setOccurredAt}
-          placeholder="2025-01-01T00:00:00Z"
-        />
+
+        <View style={styles.dateField}>
+          <Text style={styles.dateFieldLabel}>발생일</Text>
+          <Pressable style={styles.dateButton} onPress={() => setShowOccurredDatePicker(true)}>
+            <Text style={styles.dateButtonText}>{dayjs(occurredAt).format('YYYY-MM-DD')}</Text>
+          </Pressable>
+        </View>
+        {showOccurredDatePicker ? (
+          <DateTimePicker
+            value={occurredDate}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'inline' : 'default'}
+            onChange={(_, selectedDate) => {
+              if (selectedDate) {
+                setOccurredAt(dayjs(selectedDate).toISOString());
+              }
+              if (Platform.OS !== 'ios') {
+                setShowOccurredDatePicker(false);
+              }
+            }}
+          />
+        ) : null}
+
         <PrimaryButton title={loading ? '처리 중...' : '추가'} onPress={handleAdd} disabled={loading} />
       </View>
 
@@ -252,7 +279,24 @@ export function TransactionScreen() {
                   <Text style={styles.helperText}>카테고리를 먼저 추가해 주세요.</Text>
                 ) : null}
                 <TextInput style={styles.editInput} value={editingMemo} onChangeText={setEditingMemo} />
-                <TextInput style={styles.editInput} value={editingOccurredAt} onChangeText={setEditingOccurredAt} />
+                <Pressable style={styles.dateButton} onPress={() => setShowEditingOccurredDatePicker(true)}>
+                  <Text style={styles.dateButtonText}>{dayjs(editingOccurredAt).format('YYYY-MM-DD')}</Text>
+                </Pressable>
+                {showEditingOccurredDatePicker ? (
+                  <DateTimePicker
+                    value={editingOccurredDate}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                    onChange={(_, selectedDate) => {
+                      if (selectedDate) {
+                        setEditingOccurredAt(dayjs(selectedDate).toISOString());
+                      }
+                      if (Platform.OS !== 'ios') {
+                        setShowEditingOccurredDatePicker(false);
+                      }
+                    }}
+                  />
+                ) : null}
                 <View style={styles.actions}>
                   <Pressable style={styles.actionButton} onPress={handleUpdate}>
                     <Text style={styles.actionText}>저장</Text>
@@ -300,11 +344,6 @@ const styles = StyleSheet.create({
     padding: 24,
     backgroundColor: '#f8fafc',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    marginBottom: 16,
-  },
   formCard: {
     backgroundColor: '#fff',
     padding: 16,
@@ -331,6 +370,28 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     marginBottom: 8,
+    color: '#0f172a',
+  },
+  dateField: {
+    marginBottom: 12,
+  },
+  dateFieldLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 8,
+    color: '#0f172a',
+  },
+  dateButton: {
+    borderWidth: 1,
+    borderColor: '#cbd5f5',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+  },
+  dateButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
     color: '#0f172a',
   },
   categoryRow: {
@@ -387,10 +448,6 @@ const styles = StyleSheet.create({
   typeChipTextActive: {
     color: '#fff',
     fontWeight: '600',
-  },
-  error: {
-    color: '#ef4444',
-    marginBottom: 8,
   },
   listHeader: {
     flexDirection: 'row',
@@ -463,10 +520,5 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
-  },
-  empty: {
-    textAlign: 'center',
-    color: '#64748b',
-    marginTop: 20,
   },
 });

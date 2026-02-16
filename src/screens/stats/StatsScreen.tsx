@@ -56,7 +56,6 @@ export function StatsScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>통계</Text>
 
       <View style={styles.controls}>
         <Pressable style={styles.controlButton} onPress={() => moveMonth(-1)}>
