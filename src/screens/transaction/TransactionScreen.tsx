@@ -1,10 +1,12 @@
 import dayjs from 'dayjs';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   Alert,
   FlatList,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,7 +17,6 @@ import {
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorBanner } from '../../components/ErrorBanner';
 import { LoadingOverlay } from '../../components/LoadingOverlay';
-import { PrimaryButton } from '../../components/PrimaryButton';
 import { TextField } from '../../components/TextField';
 import { Transaction, TransactionType } from '../../services/transactionApi';
 import { useCategoryStore } from '../../stores/categoryStore';
@@ -26,17 +27,12 @@ const typeOptions: { label: string; value: TransactionType }[] = [
   { label: '수입', value: 'INCOME' },
 ];
 
-export function TransactionScreen() {
-  const { items, loading, error, load, add, update, remove } = useTransactionStore();
+export function TransactionScreen({ navigation }: { navigation?: any }) {
+  const { items, loading, error, load, update, remove } = useTransactionStore();
   const categories = useCategoryStore((state) => state.items);
   const loadCategories = useCategoryStore((state) => state.load);
 
   const [type, setType] = useState<TransactionType>('EXPENSE');
-  const [amount, setAmount] = useState('');
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
-  const [memo, setMemo] = useState('');
-  const [occurredDateInput, setOccurredDateInput] = useState(dayjs().format('YYYY-MM-DD'));
-  const [addModalVisible, setAddModalVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(dayjs().startOf('day'));
   const [calendarMonth, setCalendarMonth] = useState(dayjs().startOf('month'));
   const [detailModalVisible, setDetailModalVisible] = useState(false);
@@ -46,6 +42,7 @@ export function TransactionScreen() {
   const [detailMemo, setDetailMemo] = useState('');
   const [detailCategoryId, setDetailCategoryId] = useState<number | null>(null);
   const [detailOccurredDateInput, setDetailOccurredDateInput] = useState(dayjs().format('YYYY-MM-DD'));
+  const [showDetailOccurredDateModal, setShowDetailOccurredDateModal] = useState(false);
 
   useEffect(() => {
     load();
@@ -92,22 +89,10 @@ export function TransactionScreen() {
       }),
     [categories, categoryUsageCountMap]
   );
-  const addCategories = useMemo(
-    () => sortedCategories.filter((category) => category.type === type),
-    [sortedCategories, type]
-  );
   const detailCategories = useMemo(
     () => sortedCategories.filter((category) => category.type === detailType),
     [sortedCategories, detailType]
   );
-
-  const resetAddForm = (baseDate: dayjs.Dayjs = selectedDate) => {
-    setType('EXPENSE');
-    setAmount('');
-    setSelectedCategoryId(null);
-    setMemo('');
-    setOccurredDateInput(baseDate.format('YYYY-MM-DD'));
-  };
   const parseDateInputToIso = (value: string) => {
     const normalized = value.trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return null;
@@ -160,14 +145,6 @@ export function TransactionScreen() {
   }, [items]);
 
   useEffect(() => {
-    if (selectedCategoryId === null) return;
-    const selected = categories.find((category) => category.id === selectedCategoryId);
-    if (!selected || selected.type !== type) {
-      setSelectedCategoryId(null);
-    }
-  }, [type, selectedCategoryId, categories]);
-
-  useEffect(() => {
     if (detailCategoryId === null) return;
     const selected = categories.find((category) => category.id === detailCategoryId);
     if (!selected || selected.type !== detailType) {
@@ -175,35 +152,6 @@ export function TransactionScreen() {
     }
   }, [detailType, detailCategoryId, categories]);
 
-  const handleAdd = async () => {
-    const parsedAmount = Number(amount);
-    const parsedCategory = selectedCategoryId ?? 0;
-
-    if (!parsedAmount || parsedAmount <= 0) {
-      Alert.alert('입력 오류', '금액을 올바르게 입력해 주세요.');
-      return;
-    }
-    if (!parsedCategory || parsedCategory <= 0) {
-      Alert.alert('입력 오류', '카테고리를 선택해 주세요.');
-      return;
-    }
-    const parsedOccurredAt = parseDateInputToIso(occurredDateInput);
-    if (!parsedOccurredAt) {
-      Alert.alert('입력 오류', '발생일은 YYYY-MM-DD 형식으로 입력해 주세요.');
-      return;
-    }
-
-    await add({
-      type,
-      amount: parsedAmount,
-      categoryId: parsedCategory,
-      memo: memo.trim() || null,
-      occurredAt: parsedOccurredAt,
-    });
-
-    setAddModalVisible(false);
-    resetAddForm();
-  };
 
   const openDetailModal = (item: Transaction) => {
     setSelectedTransaction(item);
@@ -331,8 +279,10 @@ export function TransactionScreen() {
           <Pressable
             style={styles.refreshButton}
             onPress={() => {
-              resetAddForm();
-              setAddModalVisible(true);
+              navigation?.navigate?.('TransactionForm', {
+                occurredDate: selectedDate.format('YYYY-MM-DD'),
+                type,
+              });
             }}
           >
             <Text style={styles.refreshText}>추가</Text>
@@ -367,87 +317,6 @@ export function TransactionScreen() {
           </View>
         )}
       />
-
-      <Modal
-        visible={addModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setAddModalVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <ScrollView contentContainerStyle={styles.modalContentContainer}>
-              <View style={styles.modalHeader}>
-                <View />
-                <Pressable style={styles.closeButton} onPress={() => setAddModalVisible(false)}>
-                  <Text style={styles.closeButtonText}>X</Text>
-                </Pressable>
-              </View>
-              <View style={styles.typeRow}>
-                {typeOptions.map((option) => (
-                  <Pressable
-                    key={option.value}
-                    style={[styles.typeChip, type === option.value && styles.typeChipActive]}
-                    onPress={() => setType(option.value)}
-                  >
-                    <Text style={type === option.value ? styles.typeChipTextActive : styles.typeChipText}>
-                      {option.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-              <TextField label="금액" value={amount} onChangeText={setAmount} placeholder="예: 12000" />
-              <View style={styles.categorySection}>
-                <Text style={styles.categoryLabel}>카테고리</Text>
-                <View style={styles.categoryRow}>
-                  {addCategories.map((category) => (
-                    <Pressable
-                      key={category.id}
-                      style={[
-                        styles.categoryChip,
-                        category.type === 'EXPENSE' ? styles.categoryChipExpense : styles.categoryChipIncome,
-                        category.type === 'EXPENSE' && selectedCategoryId === category.id ? styles.categoryChipExpenseActive : null,
-                        category.type === 'INCOME' && selectedCategoryId === category.id ? styles.categoryChipIncomeActive : null,
-                        selectedCategoryId === category.id && styles.categoryChipActive,
-                      ]}
-                      onPress={() => setSelectedCategoryId(category.id)}
-                    >
-                      <Text
-                        style={
-                          selectedCategoryId === category.id ? styles.categoryChipTextActive : styles.categoryChipText
-                        }
-                      >
-                        {category.name}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-                {addCategories.length === 0 ? (
-                  <Text style={styles.helperText}>{type === 'EXPENSE' ? '지출' : '수입'} 카테고리를 먼저 추가해 주세요.</Text>
-                ) : null}
-              </View>
-              <TextField
-                label="비고"
-                value={memo}
-                onChangeText={setMemo}
-                placeholder="예: 점심"
-                multiline
-                numberOfLines={3}
-              />
-              <TextField
-                label="발생일"
-                value={occurredDateInput}
-                onChangeText={setOccurredDateInput}
-                placeholder="YYYY-MM-DD"
-              />
-
-              <View style={styles.modalActions}>
-                <PrimaryButton title={loading ? '처리 중...' : '등록'} onPress={handleAdd} disabled={loading} />
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
 
       <Modal visible={detailModalVisible} transparent animationType="fade" onRequestClose={closeDetailModal}>
         <Pressable style={styles.modalBackdrop} onPress={closeDetailModal}>
@@ -509,12 +378,12 @@ export function TransactionScreen() {
                   multiline
                   numberOfLines={3}
                 />
-                <TextField
-                  label="발생일"
-                  value={detailOccurredDateInput}
-                  onChangeText={setDetailOccurredDateInput}
-                  placeholder="YYYY-MM-DD"
-                />
+                <View style={styles.dateField}>
+                  <Text style={styles.dateFieldLabel}>발생일</Text>
+                  <Pressable style={styles.dateInputButton} onPress={() => setShowDetailOccurredDateModal(true)}>
+                    <Text style={styles.dateInputText}>{detailOccurredDateInput}</Text>
+                  </Pressable>
+                </View>
                 <View style={styles.detailActions}>
                   <Pressable style={styles.actionButton} onPress={handleSaveFromDetail}>
                     <Text style={styles.actionText}>저장</Text>
@@ -525,6 +394,33 @@ export function TransactionScreen() {
                 </View>
               </View>
             ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={showDetailOccurredDateModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDetailOccurredDateModal(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowDetailOccurredDateModal(false)}>
+          <Pressable style={styles.datePickerCard} onPress={(event) => event.stopPropagation()}>
+            <DateTimePicker
+              value={dayjs(detailOccurredDateInput).isValid() ? dayjs(detailOccurredDateInput).toDate() : new Date()}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'inline' : 'default'}
+              onChange={(_, selectedDate) => {
+                if (selectedDate) {
+                  setDetailOccurredDateInput(dayjs(selectedDate).format('YYYY-MM-DD'));
+                  setShowDetailOccurredDateModal(false);
+                  return;
+                }
+                if (Platform.OS !== 'ios') {
+                  setShowDetailOccurredDateModal(false);
+                }
+              }}
+            />
           </Pressable>
         </Pressable>
       </Modal>
@@ -835,6 +731,35 @@ const styles = StyleSheet.create({
   modalActions: {
     gap: 8,
     marginTop: 8,
+  },
+  dateField: {
+    marginBottom: 12,
+  },
+  dateFieldLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 8,
+    color: '#0f172a',
+  },
+  dateInputButton: {
+    borderWidth: 1,
+    borderColor: '#cbd5f5',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    backgroundColor: '#fff',
+  },
+  dateInputText: {
+    color: '#0f172a',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  datePickerCard: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 12,
   },
   detailModalCard: {
     backgroundColor: '#fff',

@@ -1,10 +1,12 @@
 import dayjs from 'dayjs';
 import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   Alert,
   FlatList,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -41,6 +43,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [memo, setMemo] = useState('');
   const [occurredDateInput, setOccurredDateInput] = useState(dayjs().format('YYYY-MM-DD'));
+  const [showOccurredDateModal, setShowOccurredDateModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -319,8 +322,10 @@ export function HomeScreen({ navigation }: { navigation: any }) {
             <Pressable
               style={styles.inlineAddButton}
               onPress={() => {
-                resetAddForm();
-                setAddModalVisible(true);
+                navigation.navigate('TransactionForm', {
+                  occurredDate: dayjs().format('YYYY-MM-DD'),
+                  type: 'EXPENSE',
+                });
               }}
             >
               <Text style={styles.inlineAddText}>등록</Text>
@@ -398,85 +403,105 @@ export function HomeScreen({ navigation }: { navigation: any }) {
         </Pressable>
       </Modal>
 
-      <Modal
-        visible={addModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={closeAddModal}
-      >
-        <View style={styles.addModalBackdrop}>
-          <View style={styles.addModalCard}>
-            <ScrollView contentContainerStyle={styles.addModalContentContainer}>
-              <View style={styles.addModalHeader}>
-                <Text style={styles.modalTitle}>거래 등록</Text>
-                <Pressable style={styles.addModalCloseButton} onPress={closeAddModal}>
-                  <Text style={styles.addModalCloseText}>X</Text>
-                </Pressable>
-              </View>
-              <View style={styles.typeRow}>
-                <Pressable
-                  style={[styles.typeChip, type === 'EXPENSE' && styles.typeChipActive]}
-                  onPress={() => setType('EXPENSE')}
-                >
-                  <Text style={type === 'EXPENSE' ? styles.typeChipTextActive : styles.typeChipText}>지출</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.typeChip, type === 'INCOME' && styles.typeChipActive]}
-                  onPress={() => setType('INCOME')}
-                >
-                  <Text style={type === 'INCOME' ? styles.typeChipTextActive : styles.typeChipText}>수입</Text>
-                </Pressable>
-              </View>
-              <TextField label="금액" value={amount} onChangeText={setAmount} placeholder="예: 12000" />
-              <View style={styles.categorySection}>
-                <Text style={styles.categoryLabel}>카테고리</Text>
-                <View style={styles.categoryRow}>
-                  {addCategories.map((category) => (
-                    <Pressable
-                      key={category.id}
-                      style={[
-                        styles.categoryChip,
-                        category.type === 'EXPENSE' ? styles.categoryChipExpense : styles.categoryChipIncome,
-                        category.type === 'EXPENSE' && selectedCategoryId === category.id ? styles.categoryChipExpenseActive : null,
-                        category.type === 'INCOME' && selectedCategoryId === category.id ? styles.categoryChipIncomeActive : null,
-                        selectedCategoryId === category.id && styles.categoryChipActive,
-                      ]}
-                      onPress={() => setSelectedCategoryId(category.id)}
-                    >
-                      <Text
-                        style={
-                          selectedCategoryId === category.id ? styles.categoryChipTextActive : styles.categoryChipText
-                        }
-                      >
-                        {category.name}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-                {addCategories.length === 0 ? (
-                  <Text style={styles.helperText}>{type === 'EXPENSE' ? '지출' : '수입'} 카테고리를 먼저 추가해 주세요.</Text>
-                ) : null}
-              </View>
-              <TextField
-                label="메모"
-                value={memo}
-                onChangeText={setMemo}
-                placeholder="예: 점심"
-                multiline
-                numberOfLines={3}
-              />
-              <TextField
-                label="발생일"
-                value={occurredDateInput}
-                onChangeText={setOccurredDateInput}
-                placeholder="YYYY-MM-DD"
-              />
-              <View style={styles.modalActions}>
-                <PrimaryButton title={loading ? '처리 중...' : '등록'} onPress={handleAdd} disabled={loading} />
-              </View>
-            </ScrollView>
+      {addModalVisible ? (
+        <View style={styles.addFormScreen}>
+          <View style={styles.addModalHeader}>
+            <Text style={styles.modalTitle}>거래 등록</Text>
+            <Pressable style={styles.addModalCloseButton} onPress={closeAddModal}>
+              <Text style={styles.addModalCloseText}>X</Text>
+            </Pressable>
           </View>
+          <ScrollView contentContainerStyle={styles.addModalContentContainer}>
+            <View style={styles.typeRow}>
+              <Pressable
+                style={[styles.typeChip, type === 'EXPENSE' && styles.typeChipActive]}
+                onPress={() => setType('EXPENSE')}
+              >
+                <Text style={type === 'EXPENSE' ? styles.typeChipTextActive : styles.typeChipText}>지출</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.typeChip, type === 'INCOME' && styles.typeChipActive]}
+                onPress={() => setType('INCOME')}
+              >
+                <Text style={type === 'INCOME' ? styles.typeChipTextActive : styles.typeChipText}>수입</Text>
+              </Pressable>
+            </View>
+            <TextField label="금액" value={amount} onChangeText={setAmount} placeholder="예: 12000" />
+            <View style={styles.categorySection}>
+              <Text style={styles.categoryLabel}>카테고리</Text>
+              <View style={styles.categoryRow}>
+                {addCategories.map((category) => (
+                  <Pressable
+                    key={category.id}
+                    style={[
+                      styles.categoryChip,
+                      category.type === 'EXPENSE' ? styles.categoryChipExpense : styles.categoryChipIncome,
+                      category.type === 'EXPENSE' && selectedCategoryId === category.id ? styles.categoryChipExpenseActive : null,
+                      category.type === 'INCOME' && selectedCategoryId === category.id ? styles.categoryChipIncomeActive : null,
+                      selectedCategoryId === category.id && styles.categoryChipActive,
+                    ]}
+                    onPress={() => setSelectedCategoryId(category.id)}
+                  >
+                    <Text
+                      style={
+                        selectedCategoryId === category.id ? styles.categoryChipTextActive : styles.categoryChipText
+                      }
+                    >
+                      {category.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              {addCategories.length === 0 ? (
+                <Text style={styles.helperText}>{type === 'EXPENSE' ? '지출' : '수입'} 카테고리를 먼저 추가해 주세요.</Text>
+              ) : null}
+            </View>
+            <TextField
+              label="메모"
+              value={memo}
+              onChangeText={setMemo}
+              placeholder="예: 점심"
+              multiline
+              numberOfLines={3}
+            />
+            <View style={styles.dateField}>
+              <Text style={styles.dateFieldLabel}>발생일</Text>
+              <Pressable style={styles.dateInputButton} onPress={() => setShowOccurredDateModal(true)}>
+                <Text style={styles.dateInputText}>{occurredDateInput}</Text>
+              </Pressable>
+            </View>
+            <View style={styles.modalActions}>
+              <PrimaryButton title={loading ? '처리 중...' : '등록'} onPress={handleAdd} disabled={loading} />
+            </View>
+          </ScrollView>
         </View>
+      ) : null}
+
+      <Modal
+        visible={showOccurredDateModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowOccurredDateModal(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowOccurredDateModal(false)}>
+          <Pressable style={styles.datePickerCard} onPress={(event) => event.stopPropagation()}>
+            <DateTimePicker
+              value={dayjs(occurredDateInput).isValid() ? dayjs(occurredDateInput).toDate() : new Date()}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'inline' : 'default'}
+              onChange={(_, selectedDate) => {
+                if (selectedDate) {
+                  setOccurredDateInput(dayjs(selectedDate).format('YYYY-MM-DD'));
+                  setShowOccurredDateModal(false);
+                  return;
+                }
+                if (Platform.OS !== 'ios') {
+                  setShowOccurredDateModal(false);
+                }
+              }}
+            />
+          </Pressable>
+        </Pressable>
       </Modal>
 
       <Modal
@@ -822,6 +847,17 @@ const styles = StyleSheet.create({
     padding: 16,
     maxHeight: '90%',
   },
+  addFormScreen: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 20,
+    backgroundColor: '#f8fafc',
+    padding: 24,
+    paddingTop: 56,
+  },
   addModalContentContainer: {
     paddingBottom: 4,
   },
@@ -901,5 +937,34 @@ const styles = StyleSheet.create({
   modalActions: {
     gap: 8,
     marginTop: 8,
+  },
+  dateField: {
+    marginBottom: 12,
+  },
+  dateFieldLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 8,
+    color: '#0f172a',
+  },
+  dateInputButton: {
+    borderWidth: 1,
+    borderColor: '#cbd5f5',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    backgroundColor: '#fff',
+  },
+  dateInputText: {
+    color: '#0f172a',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  datePickerCard: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 12,
   },
 });

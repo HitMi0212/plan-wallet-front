@@ -1,5 +1,6 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import dayjs from 'dayjs';
 import React, { useEffect } from 'react';
 
@@ -11,11 +12,13 @@ import { BootScreen } from '../screens/common/BootScreen';
 import { HomeScreen } from '../screens/main/HomeScreen';
 import { SettingsScreen } from '../screens/settings/SettingsScreen';
 import { StatsScreen } from '../screens/stats/StatsScreen';
+import { TransactionFormScreen } from '../screens/transaction/TransactionFormScreen';
 import { TransactionScreen } from '../screens/transaction/TransactionScreen';
 import { useAuthStore } from '../stores/authStore';
-import { MainTabParamList } from './routes';
+import { MainTabParamList, RootStackParamList } from './routes';
 
 const MainTabs = createBottomTabNavigator<MainTabParamList>();
+const RootStack = createNativeStackNavigator<RootStackParamList>();
 
 function MainTabNavigator() {
   const monthTitle = `${dayjs().year()}년 ${dayjs().month() + 1}월`;
@@ -75,5 +78,12 @@ export function AppNavigator() {
     return <BootScreen />;
   }
 
-  return <NavigationContainer><MainTabNavigator /></NavigationContainer>;
+  return (
+    <NavigationContainer>
+      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+        <RootStack.Screen name="MainTabs" component={MainTabNavigator} />
+        <RootStack.Screen name="TransactionForm" component={TransactionFormScreen} />
+      </RootStack.Navigator>
+    </NavigationContainer>
+  );
 }
