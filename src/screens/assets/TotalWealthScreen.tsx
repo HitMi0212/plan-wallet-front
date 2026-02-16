@@ -29,19 +29,25 @@ export function TotalWealthScreen() {
     );
   }, [categories]);
 
+  const currentYear = dayjs().year();
+  const yearItems = useMemo(
+    () => items.filter((item) => dayjs(item.occurredAt).year() === currentYear),
+    [items, currentYear]
+  );
+
   const totals = useMemo(() => {
-    const totalIncome = items
+    const totalIncome = yearItems
       .filter((item) => item.type === 'INCOME')
       .reduce((sum, item) => sum + item.amount, 0);
-    const totalExpense = items
+    const totalExpense = yearItems
       .filter((item) => item.type === 'EXPENSE')
       .reduce((sum, item) => sum + item.amount, 0);
 
-    const savingsExpense = items
+    const savingsExpense = yearItems
       .filter((item) => item.type === 'EXPENSE')
       .filter((item) => categoryMap.get(item.categoryId)?.expenseKind === 'SAVINGS')
       .reduce((sum, item) => sum + item.amount, 0);
-    const investExpense = items
+    const investExpense = yearItems
       .filter((item) => item.type === 'EXPENSE')
       .filter((item) => categoryMap.get(item.categoryId)?.expenseKind === 'INVEST')
       .reduce((sum, item) => sum + item.amount, 0);
@@ -53,7 +59,7 @@ export function TotalWealthScreen() {
       savingsExpense,
       investExpense,
     };
-  }, [items, categoryMap]);
+  }, [yearItems, categoryMap]);
 
   const thisMonth = dayjs().startOf('month');
   const monthNet = useMemo(() => {
@@ -80,20 +86,20 @@ export function TotalWealthScreen() {
       <View style={styles.mainCard}>
         <Text style={styles.title}>총 재산</Text>
         <Text style={styles.value}>{totals.netWealth.toLocaleString()}원</Text>
-        <Text style={styles.sub}>누적 수입 - 누적 지출</Text>
+        <Text style={styles.sub}>{currentYear}년 수입 - 지출</Text>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.label}>누적 수입</Text>
+        <Text style={styles.label}>{currentYear}년 수입</Text>
         <Text style={styles.income}>{totals.totalIncome.toLocaleString()}원</Text>
-        <Text style={styles.label}>누적 지출</Text>
+        <Text style={styles.label}>{currentYear}년 지출</Text>
         <Text style={styles.expense}>{totals.totalExpense.toLocaleString()}원</Text>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.label}>누적 예적금 지출</Text>
+        <Text style={styles.label}>{currentYear}년 예적금 지출</Text>
         <Text style={styles.savings}>{totals.savingsExpense.toLocaleString()}원</Text>
-        <Text style={styles.label}>누적 투자 지출</Text>
+        <Text style={styles.label}>{currentYear}년 투자 지출</Text>
         <Text style={styles.invest}>{totals.investExpense.toLocaleString()}원</Text>
       </View>
 
