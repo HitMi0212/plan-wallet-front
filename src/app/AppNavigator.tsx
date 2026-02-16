@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import dayjs from 'dayjs';
 import React, { useEffect } from 'react';
 
+import { TabIcon } from '../components/TabIcon';
 import { AssetFlowScreen } from '../screens/assets/AssetFlowScreen';
 import { TotalWealthScreen } from '../screens/assets/TotalWealthScreen';
 import { CategoryScreen } from '../screens/category/CategoryScreen';
@@ -22,10 +23,26 @@ function MainTabNavigator() {
   return (
     <MainTabs.Navigator
       initialRouteName="Home"
-      screenOptions={{
+      screenOptions={({ route }) => ({
         headerTitle: monthTitle,
         headerTitleAlign: 'center',
-      }}
+        tabBarIcon: ({ color, size, focused }) => {
+          const iconMap: Record<
+            keyof MainTabParamList,
+            'home' | 'transactions' | 'assetFlows' | 'totalWealth' | 'stats' | 'categories' | 'settings'
+          > = {
+            Home: 'home',
+            Transactions: 'transactions',
+            AssetFlows: 'assetFlows',
+            TotalWealth: 'totalWealth',
+            Stats: 'stats',
+            Categories: 'categories',
+            Settings: 'settings',
+          };
+          const iconName = iconMap[route.name as keyof MainTabParamList] ?? 'home';
+          return <TabIcon name={iconName} color={color} size={focused ? size + 1 : size} />;
+        },
+      })}
     >
       <MainTabs.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: '홈' }} />
       <MainTabs.Screen name="Transactions" component={TransactionScreen} options={{ tabBarLabel: '거래' }} />

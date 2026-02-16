@@ -8,6 +8,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -41,6 +42,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
   const [memo, setMemo] = useState('');
   const [occurredAt, setOccurredAt] = useState(dayjs().toISOString());
   const [showOccurredDatePicker, setShowOccurredDatePicker] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -194,6 +196,15 @@ export function HomeScreen({ navigation }: { navigation: any }) {
     resetAddForm();
   };
 
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([load(), loadCategories()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [load, loadCategories]);
+
   useLayoutEffect(() => {
     navigation.setOptions({
       headerTitle: () => (
@@ -206,7 +217,11 @@ export function HomeScreen({ navigation }: { navigation: any }) {
   }, [navigation, monthLabel]);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
       <View style={styles.heroCard}>
         <Text style={styles.heroLabel}>{heroLabel}</Text>
         <Text style={styles.heroValue}>{heroValue.toLocaleString()}원</Text>

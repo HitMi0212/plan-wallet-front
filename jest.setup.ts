@@ -38,6 +38,7 @@ jest.mock('react-native-chart-kit', () => {
   const React = require('react');
   return {
     BarChart: () => React.createElement('BarChart'),
+    LineChart: () => React.createElement('LineChart'),
     PieChart: () => React.createElement('PieChart'),
   };
 });
