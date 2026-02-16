@@ -8,11 +8,13 @@ import {
   deleteLocalTransaction,
   getLocalTransactions,
   requireAuthenticatedUserId,
+  syncLocalAssetFlowToTransactions,
   updateLocalTransaction,
 } from './localDb';
 
 export async function fetchTransactions(): Promise<Transaction[]> {
   const userId = await requireAuthenticatedUserId();
+  await syncLocalAssetFlowToTransactions(userId);
   return getLocalTransactions(userId);
 }
 

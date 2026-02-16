@@ -120,6 +120,13 @@ export function HomeScreen({ navigation }: { navigation: any }) {
   }, [items]);
 
   const monthLabel = `${selectedMonth.year()}년 ${selectedMonth.month() + 1}월`;
+  const isCurrentMonth =
+    selectedMonth.year() === dayjs().year() && selectedMonth.month() === dayjs().month();
+  const heroLabel = isCurrentMonth ? '현재 자산(이번달)' : `${selectedMonth.month() + 1}월 소비 총 합`;
+  const heroValue = isCurrentMonth ? monthlyAsset : -expenseTotal;
+  const heroSub = isCurrentMonth
+    ? `${monthLabel} 수입 - 전체지출(예적금/투자 포함)`
+    : `${monthLabel} 지출 합계`;
   const sortedCategories = useMemo(
     () => [...categories].sort((a, b) => a.name.localeCompare(b.name)),
     [categories]
@@ -201,12 +208,12 @@ export function HomeScreen({ navigation }: { navigation: any }) {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.heroCard}>
-        <Text style={styles.heroLabel}>현재 자산(이번달)</Text>
-        <Text style={styles.heroValue}>{monthlyAsset.toLocaleString()}원</Text>
+        <Text style={styles.heroLabel}>{heroLabel}</Text>
+        <Text style={styles.heroValue}>{heroValue.toLocaleString()}원</Text>
         {savingsAmount > 0 || investAmount > 0 ? (
           <Text style={styles.savingsText}>예적금 {savingsAmount.toLocaleString()}원 · 투자 {investAmount.toLocaleString()}원</Text>
         ) : null}
-        <Text style={styles.heroSub}>{monthLabel} 수입 - 전체지출(예적금/투자 포함)</Text>
+        <Text style={styles.heroSub}>{heroSub}</Text>
       </View>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -225,40 +232,42 @@ export function HomeScreen({ navigation }: { navigation: any }) {
         </View>
       </View>
 
-      <View style={styles.monthListCard}>
-        <View style={styles.monthListHeader}>
-          <Text style={styles.monthListTitle}>금일 소비 ({dayjs().format('M월 D일')})</Text>
-          <Pressable
-            style={styles.inlineAddButton}
-            onPress={() => {
-              resetAddForm();
-              setAddModalVisible(true);
-            }}
-          >
-            <Text style={styles.inlineAddText}>등록</Text>
-          </Pressable>
-        </View>
-        {todayItems.length === 0 ? (
-          <Text style={styles.helperText}>오늘 등록된 내역이 없습니다.</Text>
-        ) : (
-          <ScrollView style={styles.monthListScroll} nestedScrollEnabled>
-            {todayItems.map((item) => (
-              <View key={item.id} style={styles.monthItemRow}>
-                <View>
-                  <Text style={styles.monthItemCategory}>
-                    {categoryMap.get(item.categoryId)?.name ?? `카테고리 ${item.categoryId}`}
+      {isCurrentMonth ? (
+        <View style={styles.monthListCard}>
+          <View style={styles.monthListHeader}>
+            <Text style={styles.monthListTitle}>금일 소비 ({dayjs().format('M월 D일')})</Text>
+            <Pressable
+              style={styles.inlineAddButton}
+              onPress={() => {
+                resetAddForm();
+                setAddModalVisible(true);
+              }}
+            >
+              <Text style={styles.inlineAddText}>등록</Text>
+            </Pressable>
+          </View>
+          {todayItems.length === 0 ? (
+            <Text style={styles.helperText}>오늘 등록된 내역이 없습니다.</Text>
+          ) : (
+            <ScrollView style={styles.monthListScroll} nestedScrollEnabled>
+              {todayItems.map((item) => (
+                <View key={item.id} style={styles.monthItemRow}>
+                  <View>
+                    <Text style={styles.monthItemCategory}>
+                      {categoryMap.get(item.categoryId)?.name ?? `카테고리 ${item.categoryId}`}
+                    </Text>
+                    {item.memo ? <Text style={styles.monthItemMemo}>{item.memo}</Text> : null}
+                  </View>
+                  <Text style={item.type === 'INCOME' ? styles.monthItemIncome : styles.monthItemExpense}>
+                    {item.type === 'INCOME' ? '+' : '-'}
+                    {item.amount.toLocaleString()}원
                   </Text>
-                  {item.memo ? <Text style={styles.monthItemMemo}>{item.memo}</Text> : null}
                 </View>
-                <Text style={item.type === 'INCOME' ? styles.monthItemIncome : styles.monthItemExpense}>
-                  {item.type === 'INCOME' ? '+' : '-'}
-                  {item.amount.toLocaleString()}원
-                </Text>
-              </View>
-            ))}
-          </ScrollView>
-        )}
-      </View>
+              ))}
+            </ScrollView>
+          )}
+        </View>
+      ) : null}
 
       {loading ? <Text style={styles.helperText}>집계 중...</Text> : null}
 
@@ -548,7 +557,7 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: 19,
     fontWeight: '800',
     marginBottom: 10,
     color: '#0f172a',
@@ -563,10 +572,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
   },
   monthOptionText: {
+    fontSize: 17,
     color: '#0f172a',
     fontWeight: '600',
   },
   monthOptionTextSelected: {
+    fontSize: 17,
     color: '#fff',
     fontWeight: '700',
   },

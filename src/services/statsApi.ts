@@ -1,6 +1,6 @@
 import dayjs from 'dayjs';
 
-import { getLocalTransactions, requireAuthenticatedUserId } from './localDb';
+import { getLocalTransactions, requireAuthenticatedUserId, syncLocalAssetFlowToTransactions } from './localDb';
 
 export interface MonthlySummaryResponse {
   year: number;
@@ -47,6 +47,7 @@ function toMonthlySummary(year: number, month: number, occurredAtValues: { type:
 
 export async function fetchMonthlySummary(year: number, month: number): Promise<MonthlySummaryResponse> {
   const userId = await requireAuthenticatedUserId();
+  await syncLocalAssetFlowToTransactions(userId);
   const transactions = await getLocalTransactions(userId);
 
   const monthlyItems = transactions.filter((item) => {
@@ -59,6 +60,7 @@ export async function fetchMonthlySummary(year: number, month: number): Promise<
 
 export async function fetchMonthlyComparison(year: number, month: number): Promise<MonthlyComparisonResponse> {
   const userId = await requireAuthenticatedUserId();
+  await syncLocalAssetFlowToTransactions(userId);
   const transactions = await getLocalTransactions(userId);
 
   const currentItems = transactions.filter((item) => {
@@ -87,6 +89,7 @@ export async function fetchMonthlyComparison(year: number, month: number): Promi
 
 export async function fetchCategoryTotals(from: string, to: string): Promise<CategoryTotalResponse[]> {
   const userId = await requireAuthenticatedUserId();
+  await syncLocalAssetFlowToTransactions(userId);
   const transactions = await getLocalTransactions(userId);
 
   const fromDate = dayjs(from).startOf('day');
@@ -114,6 +117,7 @@ export async function fetchCategoryTotals(from: string, to: string): Promise<Cat
 
 export async function fetchDailyTotals(year: number, month: number): Promise<DailyTotalResponse[]> {
   const userId = await requireAuthenticatedUserId();
+  await syncLocalAssetFlowToTransactions(userId);
   const transactions = await getLocalTransactions(userId);
 
   const monthStart = dayjs(`${year}-${String(month).padStart(2, '0')}-01`).startOf('month');
