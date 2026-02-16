@@ -245,6 +245,13 @@ export function TransactionScreen() {
     ]);
   };
 
+  const handleDeleteFromList = (id: number) => {
+    Alert.alert('삭제 확인', '거래를 삭제할까요?', [
+      { text: '취소', style: 'cancel' },
+      { text: '삭제', style: 'destructive', onPress: () => remove(id) },
+    ]);
+  };
+
   return (
     <View style={styles.container}>
       {error ? <ErrorBanner message={error} /> : null}
@@ -331,6 +338,12 @@ export function TransactionScreen() {
                 {dayjs(item.occurredAt).format('YYYY-MM-DD')}
               </Text>
               {item.memo ? <Text style={styles.itemMemo}>{item.memo}</Text> : null}
+            </Pressable>
+            <Pressable
+              style={[styles.actionButton, styles.deleteButton, styles.inlineDeleteButton]}
+              onPress={() => handleDeleteFromList(item.id)}
+            >
+              <Text style={[styles.actionText, styles.deleteActionText]}>삭제</Text>
             </Pressable>
           </View>
         )}
@@ -737,6 +750,9 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     borderColor: '#ef4444',
+  },
+  inlineDeleteButton: {
+    marginLeft: 8,
   },
   actionText: {
     color: '#0f172a',
