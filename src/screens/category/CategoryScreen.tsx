@@ -39,12 +39,21 @@ function expenseKindLabel(kind?: ExpenseCategoryKind) {
   return '일반';
 }
 
-export function CategoryScreen() {
+type CategoryScreenProps = {
+  route?: {
+    params?: {
+      filter?: CategoryType;
+    };
+  };
+};
+
+export function CategoryScreen({ route }: CategoryScreenProps) {
   const { items, loading, error, load, add, remove } = useCategoryStore();
+  const forcedFilter = route?.params?.filter;
 
   const [name, setName] = useState('');
-  const [type, setType] = useState<CategoryType>('EXPENSE');
-  const [filter, setFilter] = useState<CategoryFilter>('EXPENSE');
+  const [type, setType] = useState<CategoryType>(forcedFilter ?? 'EXPENSE');
+  const [filter, setFilter] = useState<CategoryFilter>(forcedFilter ?? 'EXPENSE');
   const [addModalVisible, setAddModalVisible] = useState(false);
 
   useEffect(() => {
@@ -52,6 +61,17 @@ export function CategoryScreen() {
   }, [load]);
 
   useEffect(() => {
+    if (forcedFilter) {
+      setFilter(forcedFilter);
+      setType(forcedFilter);
+    }
+  }, [forcedFilter]);
+
+  useEffect(() => {
+    if (forcedFilter) {
+      return;
+    }
+
     (async () => {
       const stored = await AsyncStorage.getItem(FILTER_STORAGE_KEY);
       if (!stored) return;
@@ -59,11 +79,14 @@ export function CategoryScreen() {
         setFilter(stored as CategoryFilter);
       }
     })();
-  }, []);
+  }, [forcedFilter]);
 
   useEffect(() => {
+    if (forcedFilter) {
+      return;
+    }
     AsyncStorage.setItem(FILTER_STORAGE_KEY, filter);
-  }, [filter]);
+  }, [filter, forcedFilter]);
 
   const sortedItems = useMemo(() => {
     const filtered = items.filter((item) => item.type === filter);
@@ -78,13 +101,13 @@ export function CategoryScreen() {
 
     await add({
       name: name.trim(),
-      type,
+      type: forcedFilter ?? type,
       expenseKind: 'NORMAL',
     });
 
     setAddModalVisible(false);
     setName('');
-    setType('EXPENSE');
+    setType(forcedFilter ?? 'EXPENSE');
   };
 
   const handleDelete = (id: number) => {
@@ -114,19 +137,21 @@ export function CategoryScreen() {
         </View>
       </View>
 
-      <View style={styles.typeRow}>
-        {filterOptions.map((option) => (
-          <Pressable
-            key={option.value}
-            style={[styles.typeChip, filter === option.value && styles.typeChipActive]}
-            onPress={() => setFilter(option.value)}
-          >
-            <Text style={filter === option.value ? styles.typeChipTextActive : styles.typeChipText}>
-              {option.label}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+      {!forcedFilter ? (
+        <View style={styles.typeRow}>
+          {filterOptions.map((option) => (
+            <Pressable
+              key={option.value}
+              style={[styles.typeChip, filter === option.value && styles.typeChipActive]}
+              onPress={() => setFilter(option.value)}
+            >
+              <Text style={filter === option.value ? styles.typeChipTextActive : styles.typeChipText}>
+                {option.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
 
       <FlatList
         data={sortedItems}
@@ -161,19 +186,21 @@ export function CategoryScreen() {
           <View style={styles.modalCard}>
             <ScrollView contentContainerStyle={styles.modalContentContainer}>
               <Text style={styles.sectionTitle}>새 카테고리</Text>
-              <View style={styles.typeRow}>
-                {typeOptions.map((option) => (
-                  <Pressable
-                    key={option.value}
-                    style={[styles.typeChip, type === option.value && styles.typeChipActive]}
-                    onPress={() => setType(option.value)}
-                  >
-                    <Text style={type === option.value ? styles.typeChipTextActive : styles.typeChipText}>
-                      {option.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
+              {!forcedFilter ? (
+                <View style={styles.typeRow}>
+                  {typeOptions.map((option) => (
+                    <Pressable
+                      key={option.value}
+                      style={[styles.typeChip, type === option.value && styles.typeChipActive]}
+                      onPress={() => setType(option.value)}
+                    >
+                      <Text style={type === option.value ? styles.typeChipTextActive : styles.typeChipText}>
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
               <TextField label="카테고리 이름" value={name} onChangeText={setName} placeholder="예: 식비" />
               <View style={styles.modalActions}>
                 <PrimaryButton

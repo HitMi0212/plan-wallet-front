@@ -1,3 +1,5 @@
+import type { CategoryType } from '../services/categoryApi';
+
 export type AuthStackParamList = {
   Login: undefined;
   SignUp: undefined;
@@ -5,7 +7,6 @@ export type AuthStackParamList = {
 
 export type MainTabParamList = {
   Home: undefined;
-  Categories: undefined;
   Transactions: undefined;
   Stats: undefined;
   Settings: undefined;
@@ -19,4 +20,8 @@ export type RootStackParamList = {
     occurredDate?: string;
     type?: 'EXPENSE' | 'INCOME';
   } | undefined;
+  CategoryManagement: {
+    filter: CategoryType;
+    title: string;
+  };
 };

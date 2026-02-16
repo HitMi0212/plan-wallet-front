@@ -27,7 +27,6 @@ function MainTabNavigator() {
     AssetFlows: '예적금/투자',
     TotalWealth: '총재산',
     Stats: '통계',
-    Categories: '카테고리',
     Settings: '설정',
   };
 
@@ -40,14 +39,13 @@ function MainTabNavigator() {
         tabBarIcon: ({ color, size, focused }) => {
           const iconMap: Record<
             keyof MainTabParamList,
-            'home' | 'transactions' | 'assetFlows' | 'totalWealth' | 'stats' | 'categories' | 'settings'
+            'home' | 'transactions' | 'assetFlows' | 'totalWealth' | 'stats' | 'settings'
           > = {
             Home: 'home',
             Transactions: 'transactions',
             AssetFlows: 'assetFlows',
             TotalWealth: 'totalWealth',
             Stats: 'stats',
-            Categories: 'categories',
             Settings: 'settings',
           };
           const iconName = iconMap[route.name as keyof MainTabParamList] ?? 'home';
@@ -60,7 +58,6 @@ function MainTabNavigator() {
       <MainTabs.Screen name="AssetFlows" component={AssetFlowScreen} options={{ tabBarLabel: '예적금/투자' }} />
       <MainTabs.Screen name="TotalWealth" component={TotalWealthScreen} options={{ tabBarLabel: '총재산' }} />
       <MainTabs.Screen name="Stats" component={StatsScreen} options={{ tabBarLabel: '통계' }} />
-      <MainTabs.Screen name="Categories" component={CategoryScreen} options={{ tabBarLabel: '카테고리' }} />
       <MainTabs.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: '설정' }} />
     </MainTabs.Navigator>
   );
@@ -80,9 +77,23 @@ export function AppNavigator() {
 
   return (
     <NavigationContainer>
-      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+      <RootStack.Navigator
+        screenOptions={{
+          headerShown: false,
+          headerBackTitle: '이전',
+        }}
+      >
         <RootStack.Screen name="MainTabs" component={MainTabNavigator} />
         <RootStack.Screen name="TransactionForm" component={TransactionFormScreen} />
+        <RootStack.Screen
+          name="CategoryManagement"
+          component={CategoryScreen}
+          options={({ route }) => ({
+            headerShown: true,
+            headerTitle: route.params.title,
+            headerTitleAlign: 'center',
+          })}
+        />
       </RootStack.Navigator>
     </NavigationContainer>
   );

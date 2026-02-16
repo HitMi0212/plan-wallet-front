@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
+import { RootStackParamList } from '../../app/routes';
 import { TextField } from '../../components/TextField';
 import { exportBackupFile, importBackupFile } from '../../services/backupService';
 import { useAuthStore } from '../../stores/authStore';
 
 export function SettingsScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const login = useAuthStore((state) => state.login);
   const signUp = useAuthStore((state) => state.signUp);
@@ -104,6 +108,18 @@ export function SettingsScreen() {
             <PrimaryButton title="회원가입" onPress={handleSignUp} />
           </>
         )}
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>카테고리 관리</Text>
+        <PrimaryButton
+          title="지출 카테고리 관리"
+          onPress={() => navigation.navigate('CategoryManagement', { filter: 'EXPENSE', title: '지출 카테고리 관리' })}
+        />
+        <PrimaryButton
+          title="수입 카테고리 관리"
+          onPress={() => navigation.navigate('CategoryManagement', { filter: 'INCOME', title: '수입 카테고리 관리' })}
+        />
       </View>
 
       <View style={styles.card}>
