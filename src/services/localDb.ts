@@ -831,3 +831,38 @@ export async function seedDemoDataIfEmpty(userId: number): Promise<void> {
   await writeList(CATEGORIES_KEY, [...categories, ...demoCategories]);
   await writeList(TRANSACTIONS_KEY, [...transactions, ...demoTransactions]);
 }
+
+export async function seedDefaultCategoriesIfEmpty(userId: number): Promise<void> {
+  const categories = await readList<LocalCategory>(CATEGORIES_KEY);
+  const userCategories = categories.filter((item) => item.userId === userId);
+  if (userCategories.length > 0) {
+    return;
+  }
+
+  const timestamp = new Date().toISOString();
+  let nextCategoryId = nextId(categories);
+
+  const createDefaultCategory = (
+    type: Category['type'],
+    name: string,
+    expenseKind: Category['expenseKind']
+  ): LocalCategory => ({
+    id: nextCategoryId++,
+    userId,
+    type,
+    expenseKind,
+    name,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+
+  const defaultCategories: LocalCategory[] = [
+    createDefaultCategory('INCOME', '월급', 'NORMAL'),
+    createDefaultCategory('EXPENSE', '식비', 'NORMAL'),
+    createDefaultCategory('EXPENSE', '교통', 'NORMAL'),
+    createDefaultCategory('EXPENSE', '적금', 'SAVINGS'),
+    createDefaultCategory('EXPENSE', '국내주식', 'INVEST'),
+  ];
+
+  await writeList(CATEGORIES_KEY, [...categories, ...defaultCategories]);
+}

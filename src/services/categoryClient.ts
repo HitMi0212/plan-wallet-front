@@ -4,11 +4,13 @@ import {
   deleteLocalCategory,
   getLocalCategories,
   requireAuthenticatedUserId,
+  seedDefaultCategoriesIfEmpty,
   updateLocalCategory,
 } from './localDb';
 
 export async function fetchCategories(): Promise<Category[]> {
   const userId = await requireAuthenticatedUserId();
+  await seedDefaultCategoriesIfEmpty(userId);
   return getLocalCategories(userId);
 }
 
