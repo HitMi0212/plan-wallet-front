@@ -1,17 +1,14 @@
 import dayjs from 'dayjs';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   Alert,
   FlatList,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 
@@ -20,7 +17,7 @@ import { ErrorBanner } from '../../components/ErrorBanner';
 import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { TextField } from '../../components/TextField';
-import { TransactionType } from '../../services/transactionApi';
+import { Transaction, TransactionType } from '../../services/transactionApi';
 import { useCategoryStore } from '../../stores/categoryStore';
 import { useTransactionStore } from '../../stores/transactionStore';
 
@@ -42,14 +39,13 @@ export function TransactionScreen() {
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(dayjs().startOf('day'));
   const [calendarMonth, setCalendarMonth] = useState(dayjs().startOf('month'));
-
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editingAmount, setEditingAmount] = useState('');
-  const [editingMemo, setEditingMemo] = useState('');
-  const [editingOccurredAt, setEditingOccurredAt] = useState('');
-  const [showEditingOccurredDatePicker, setShowEditingOccurredDatePicker] = useState(false);
-  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
-  const [editingType, setEditingType] = useState<TransactionType>('EXPENSE');
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [detailType, setDetailType] = useState<TransactionType>('EXPENSE');
+  const [detailAmount, setDetailAmount] = useState('');
+  const [detailMemo, setDetailMemo] = useState('');
+  const [detailCategoryId, setDetailCategoryId] = useState<number | null>(null);
+  const [detailOccurredDateInput, setDetailOccurredDateInput] = useState(dayjs().format('YYYY-MM-DD'));
 
   useEffect(() => {
     load();
@@ -88,14 +84,10 @@ export function TransactionScreen() {
     () => sortedCategories.filter((category) => category.type === type),
     [sortedCategories, type]
   );
-  const editCategories = useMemo(
-    () => sortedCategories.filter((category) => category.type === editingType),
-    [sortedCategories, editingType]
+  const detailCategories = useMemo(
+    () => sortedCategories.filter((category) => category.type === detailType),
+    [sortedCategories, detailType]
   );
-
-  const editingOccurredDate = dayjs(editingOccurredAt).isValid()
-    ? dayjs(editingOccurredAt).toDate()
-    : new Date();
 
   const resetAddForm = (baseDate: dayjs.Dayjs = selectedDate) => {
     setType('EXPENSE');
@@ -159,12 +151,12 @@ export function TransactionScreen() {
   }, [type, selectedCategoryId, categories]);
 
   useEffect(() => {
-    if (editingCategoryId === null) return;
-    const selected = categories.find((category) => category.id === editingCategoryId);
-    if (!selected || selected.type !== editingType) {
-      setEditingCategoryId(null);
+    if (detailCategoryId === null) return;
+    const selected = categories.find((category) => category.id === detailCategoryId);
+    if (!selected || selected.type !== detailType) {
+      setDetailCategoryId(null);
     }
-  }, [editingType, editingCategoryId, categories]);
+  }, [detailType, detailCategoryId, categories]);
 
   const handleAdd = async () => {
     const parsedAmount = Number(amount);
@@ -196,23 +188,25 @@ export function TransactionScreen() {
     resetAddForm();
   };
 
-  const startEdit = (id: number) => {
-    const target = items.find((item) => item.id === id);
-    if (!target) return;
-    setEditingId(id);
-    setEditingType(target.type);
-    setEditingAmount(String(target.amount));
-    setEditingCategoryId(target.categoryId);
-    setEditingMemo(target.memo ?? '');
-    setEditingOccurredAt(target.occurredAt);
-    setShowEditingOccurredDatePicker(false);
+  const openDetailModal = (item: Transaction) => {
+    setSelectedTransaction(item);
+    setDetailType(item.type);
+    setDetailAmount(String(item.amount));
+    setDetailCategoryId(item.categoryId);
+    setDetailMemo(item.memo ?? '');
+    setDetailOccurredDateInput(dayjs(item.occurredAt).format('YYYY-MM-DD'));
+    setDetailModalVisible(true);
   };
 
-  const handleUpdate = async () => {
-    if (editingId === null) return;
+  const closeDetailModal = () => {
+    setDetailModalVisible(false);
+    setSelectedTransaction(null);
+  };
 
-    const parsedAmount = Number(editingAmount);
-    const parsedCategory = editingCategoryId ?? 0;
+  const handleSaveFromDetail = async () => {
+    if (!selectedTransaction) return;
+    const parsedAmount = Number(detailAmount);
+    const parsedCategory = detailCategoryId ?? 0;
     if (!parsedAmount || parsedAmount <= 0) {
       Alert.alert('입력 오류', '금액을 올바르게 입력해 주세요.');
       return;
@@ -221,23 +215,33 @@ export function TransactionScreen() {
       Alert.alert('입력 오류', '카테고리를 선택해 주세요.');
       return;
     }
-
-    await update(editingId, {
-      type: editingType,
+    const parsedOccurredAt = parseDateInputToIso(detailOccurredDateInput);
+    if (!parsedOccurredAt) {
+      Alert.alert('입력 오류', '발생일은 YYYY-MM-DD 형식으로 입력해 주세요.');
+      return;
+    }
+    await update(selectedTransaction.id, {
+      type: detailType,
       amount: parsedAmount,
       categoryId: parsedCategory,
-      memo: editingMemo.trim() || null,
-      occurredAt: editingOccurredAt,
+      memo: detailMemo.trim() || null,
+      occurredAt: parsedOccurredAt,
     });
-
-    setEditingId(null);
-    setShowEditingOccurredDatePicker(false);
+    closeDetailModal();
   };
 
-  const handleDelete = (id: number) => {
+  const handleDeleteFromDetail = () => {
+    if (!selectedTransaction) return;
     Alert.alert('삭제 확인', '거래를 삭제할까요?', [
       { text: '취소', style: 'cancel' },
-      { text: '삭제', style: 'destructive', onPress: () => remove(id) },
+      {
+        text: '삭제',
+        style: 'destructive',
+        onPress: async () => {
+          await remove(selectedTransaction.id);
+          closeDetailModal();
+        },
+      },
     ]);
   };
 
@@ -318,103 +322,16 @@ export function TransactionScreen() {
         ListEmptyComponent={<EmptyState title="선택한 날짜의 거래가 없습니다." description="달력에서 날짜를 바꾸거나 새 거래를 추가해 보세요." />}
         renderItem={({ item }) => (
           <View style={styles.listItem}>
-            {editingId === item.id ? (
-              <View style={styles.editBox}>
-                <View style={styles.typeRow}>
-                  {typeOptions.map((option) => (
-                    <Pressable
-                      key={option.value}
-                      style={[styles.typeChip, editingType === option.value && styles.typeChipActive]}
-                      onPress={() => setEditingType(option.value)}
-                    >
-                      <Text style={editingType === option.value ? styles.typeChipTextActive : styles.typeChipText}>
-                        {option.label}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-                <TextInput style={styles.editInput} value={editingAmount} onChangeText={setEditingAmount} />
-                <View style={styles.categoryRow}>
-                  {editCategories.map((category) => (
-                    <Pressable
-                      key={category.id}
-                      style={[
-                        styles.categoryChip,
-                        category.type === 'EXPENSE' ? styles.categoryChipExpense : styles.categoryChipIncome,
-                        editingCategoryId === category.id && styles.categoryChipActive,
-                      ]}
-                      onPress={() => setEditingCategoryId(category.id)}
-                    >
-                      <Text
-                        style={
-                          editingCategoryId === category.id
-                            ? styles.categoryChipTextActive
-                            : styles.categoryChipText
-                        }
-                      >
-                        {category.name}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-                {editCategories.length === 0 ? (
-                  <Text style={styles.helperText}>
-                    {editingType === 'EXPENSE' ? '지출' : '수입'} 카테고리를 먼저 추가해 주세요.
-                  </Text>
-                ) : null}
-                <TextInput style={styles.editInput} value={editingMemo} onChangeText={setEditingMemo} />
-                <Pressable style={styles.dateButton} onPress={() => setShowEditingOccurredDatePicker(true)}>
-                  <Text style={styles.dateButtonText}>{dayjs(editingOccurredAt).format('YYYY-MM-DD')}</Text>
-                </Pressable>
-                {showEditingOccurredDatePicker ? (
-                  <DateTimePicker
-                    value={editingOccurredDate}
-                    mode="date"
-                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                    onChange={(_, selectedDate) => {
-                      if (selectedDate) {
-                        setEditingOccurredAt(dayjs(selectedDate).toISOString());
-                      }
-                      if (Platform.OS !== 'ios') {
-                        setShowEditingOccurredDatePicker(false);
-                      }
-                    }}
-                  />
-                ) : null}
-                <View style={styles.actions}>
-                  <Pressable style={styles.actionButton} onPress={handleUpdate}>
-                    <Text style={styles.actionText}>저장</Text>
-                  </Pressable>
-                  <Pressable style={[styles.actionButton, styles.cancelButton]} onPress={() => setEditingId(null)}>
-                    <Text style={styles.actionText}>취소</Text>
-                  </Pressable>
-                </View>
-              </View>
-            ) : (
-              <>
-                <View>
-                  <Text style={item.type === 'EXPENSE' ? styles.itemNameExpense : styles.itemNameIncome}>
-                    {categoryMap.get(item.categoryId)?.name ?? `카테고리 ${item.categoryId}`}{' '}
-                    {item.amount.toLocaleString()}원
-                  </Text>
-                  <Text style={styles.itemMeta}>
-                    {dayjs(item.occurredAt).format('YYYY-MM-DD')}
-                  </Text>
-                  {item.memo ? <Text style={styles.itemMemo}>{item.memo}</Text> : null}
-                </View>
-                <View style={styles.actions}>
-                  <Pressable style={styles.actionButton} onPress={() => startEdit(item.id)}>
-                    <Text style={styles.actionText}>수정</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.actionButton, styles.deleteButton]}
-                    onPress={() => handleDelete(item.id)}
-                  >
-                    <Text style={[styles.actionText, styles.deleteActionText]}>삭제</Text>
-                  </Pressable>
-                </View>
-              </>
-            )}
+            <Pressable style={styles.itemContent} onPress={() => openDetailModal(item)}>
+              <Text style={item.type === 'EXPENSE' ? styles.itemNameExpense : styles.itemNameIncome}>
+                {categoryMap.get(item.categoryId)?.name ?? `카테고리 ${item.categoryId}`}{' '}
+                {item.amount.toLocaleString()}원
+              </Text>
+              <Text style={styles.itemMeta}>
+                {dayjs(item.occurredAt).format('YYYY-MM-DD')}
+              </Text>
+              {item.memo ? <Text style={styles.itemMemo}>{item.memo}</Text> : null}
+            </Pressable>
           </View>
         )}
       />
@@ -491,6 +408,77 @@ export function TransactionScreen() {
         </View>
       </Modal>
 
+      <Modal visible={detailModalVisible} transparent animationType="fade" onRequestClose={closeDetailModal}>
+        <Pressable style={styles.modalBackdrop} onPress={closeDetailModal}>
+          <Pressable style={styles.detailModalCard} onPress={(event) => event.stopPropagation()}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.detailTitle}>거래 상세</Text>
+              <Pressable style={styles.closeButton} onPress={closeDetailModal}>
+                <Text style={styles.closeButtonText}>X</Text>
+              </Pressable>
+            </View>
+            {selectedTransaction ? (
+              <View style={styles.detailRows}>
+                <View style={styles.typeRow}>
+                  {typeOptions.map((option) => (
+                    <Pressable
+                      key={option.value}
+                      style={[styles.typeChip, detailType === option.value && styles.typeChipActive]}
+                      onPress={() => setDetailType(option.value)}
+                    >
+                      <Text style={detailType === option.value ? styles.typeChipTextActive : styles.typeChipText}>
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <TextField label="금액" value={detailAmount} onChangeText={setDetailAmount} placeholder="예: 12000" />
+                <View style={styles.categorySection}>
+                  <Text style={styles.categoryLabel}>카테고리</Text>
+                  <View style={styles.categoryRow}>
+                    {detailCategories.map((category) => (
+                      <Pressable
+                        key={category.id}
+                        style={[
+                          styles.categoryChip,
+                          category.type === 'EXPENSE' ? styles.categoryChipExpense : styles.categoryChipIncome,
+                          detailCategoryId === category.id && styles.categoryChipActive,
+                        ]}
+                        onPress={() => setDetailCategoryId(category.id)}
+                      >
+                        <Text
+                          style={detailCategoryId === category.id ? styles.categoryChipTextActive : styles.categoryChipText}
+                        >
+                          {category.name}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  {detailCategories.length === 0 ? (
+                    <Text style={styles.helperText}>{detailType === 'EXPENSE' ? '지출' : '수입'} 카테고리를 먼저 추가해 주세요.</Text>
+                  ) : null}
+                </View>
+                <TextField label="비고" value={detailMemo} onChangeText={setDetailMemo} placeholder="예: 점심" />
+                <TextField
+                  label="발생일"
+                  value={detailOccurredDateInput}
+                  onChangeText={setDetailOccurredDateInput}
+                  placeholder="YYYY-MM-DD"
+                />
+                <View style={styles.detailActions}>
+                  <Pressable style={styles.actionButton} onPress={handleSaveFromDetail}>
+                    <Text style={styles.actionText}>저장</Text>
+                  </Pressable>
+                  <Pressable style={[styles.actionButton, styles.deleteButton]} onPress={handleDeleteFromDetail}>
+                    <Text style={[styles.actionText, styles.deleteActionText]}>삭제</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {loading ? <LoadingOverlay /> : null}
     </View>
   );
@@ -517,28 +505,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     color: '#0f172a',
   },
-  dateField: {
-    marginBottom: 12,
-  },
-  dateFieldLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 8,
-    color: '#0f172a',
-  },
-  dateButton: {
-    borderWidth: 1,
-    borderColor: '#cbd5f5',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: 'transparent',
-  },
-  dateButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#0f172a',
-  },
   categoryRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -560,7 +526,7 @@ const styles = StyleSheet.create({
     borderColor: '#bbf7d0',
   },
   categoryChipActive: {
-    backgroundColor: 'transparent',
+    backgroundColor: '#e2e8f0',
     borderColor: '#0f172a',
   },
   categoryChipText: {
@@ -584,7 +550,7 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5f5',
   },
   typeChipActive: {
-    backgroundColor: 'transparent',
+    backgroundColor: '#e2e8f0',
     borderColor: '#0f172a',
   },
   typeChipText: {
@@ -724,6 +690,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  itemContent: {
+    flex: 1,
+    paddingRight: 10,
+  },
   itemNameIncome: {
     fontSize: 16,
     fontWeight: '700',
@@ -745,10 +715,6 @@ const styles = StyleSheet.create({
     color: '#475569',
     marginTop: 2,
   },
-  actions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
   actionButton: {
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -760,9 +726,6 @@ const styles = StyleSheet.create({
   deleteButton: {
     borderColor: '#ef4444',
   },
-  cancelButton: {
-    borderColor: '#94a3b8',
-  },
   actionText: {
     color: '#0f172a',
     fontSize: 12,
@@ -770,17 +733,6 @@ const styles = StyleSheet.create({
   },
   deleteActionText: {
     color: '#dc2626',
-  },
-  editBox: {
-    flex: 1,
-    gap: 8,
-  },
-  editInput: {
-    borderWidth: 1,
-    borderColor: '#cbd5f5',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
   },
   modalBackdrop: {
     flex: 1,
@@ -820,6 +772,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   modalActions: {
+    gap: 8,
+    marginTop: 8,
+  },
+  detailModalCard: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 16,
+  },
+  detailTitle: {
+    color: '#0f172a',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  detailRows: {
+    gap: 8,
+    marginTop: 8,
+  },
+  detailActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
     gap: 8,
     marginTop: 8,
   },
