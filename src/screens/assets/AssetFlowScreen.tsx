@@ -702,15 +702,15 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5f5',
   },
   typeChipActive: {
-    backgroundColor: 'transparent',
+    backgroundColor: '#0f172a',
     borderColor: '#0f172a',
   },
   typeChipText: {
     color: '#0f172a',
   },
   typeChipTextActive: {
-    color: '#0f172a',
-    fontWeight: '600',
+    color: '#ffffff',
+    fontWeight: '700',
   },
   dateField: {
     marginBottom: 12,

@@ -374,6 +374,8 @@ export function TransactionScreen() {
                       style={[
                         styles.categoryChip,
                         category.type === 'EXPENSE' ? styles.categoryChipExpense : styles.categoryChipIncome,
+                        category.type === 'EXPENSE' && selectedCategoryId === category.id ? styles.categoryChipExpenseActive : null,
+                        category.type === 'INCOME' && selectedCategoryId === category.id ? styles.categoryChipIncomeActive : null,
                         selectedCategoryId === category.id && styles.categoryChipActive,
                       ]}
                       onPress={() => setSelectedCategoryId(category.id)}
@@ -442,6 +444,8 @@ export function TransactionScreen() {
                         style={[
                           styles.categoryChip,
                           category.type === 'EXPENSE' ? styles.categoryChipExpense : styles.categoryChipIncome,
+                          category.type === 'EXPENSE' && detailCategoryId === category.id ? styles.categoryChipExpenseActive : null,
+                          category.type === 'INCOME' && detailCategoryId === category.id ? styles.categoryChipIncomeActive : null,
                           detailCategoryId === category.id && styles.categoryChipActive,
                         ]}
                         onPress={() => setDetailCategoryId(category.id)}
@@ -526,15 +530,23 @@ const styles = StyleSheet.create({
     borderColor: '#bbf7d0',
   },
   categoryChipActive: {
-    backgroundColor: '#e2e8f0',
+    backgroundColor: '#0f172a',
     borderColor: '#0f172a',
+  },
+  categoryChipExpenseActive: {
+    backgroundColor: '#dc2626',
+    borderColor: '#dc2626',
+  },
+  categoryChipIncomeActive: {
+    backgroundColor: '#16a34a',
+    borderColor: '#16a34a',
   },
   categoryChipText: {
     color: '#0f172a',
     fontWeight: '600',
   },
   categoryChipTextActive: {
-    color: '#0f172a',
+    color: '#ffffff',
     fontWeight: '700',
   },
   helperText: {
@@ -550,15 +562,15 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5f5',
   },
   typeChipActive: {
-    backgroundColor: '#e2e8f0',
+    backgroundColor: '#0f172a',
     borderColor: '#0f172a',
   },
   typeChipText: {
     color: '#0f172a',
   },
   typeChipTextActive: {
-    color: '#0f172a',
-    fontWeight: '600',
+    color: '#ffffff',
+    fontWeight: '700',
   },
   listHeader: {
     flexDirection: 'row',

@@ -425,6 +425,8 @@ export function HomeScreen({ navigation }: { navigation: any }) {
                       style={[
                         styles.categoryChip,
                         category.type === 'EXPENSE' ? styles.categoryChipExpense : styles.categoryChipIncome,
+                        category.type === 'EXPENSE' && selectedCategoryId === category.id ? styles.categoryChipExpenseActive : null,
+                        category.type === 'INCOME' && selectedCategoryId === category.id ? styles.categoryChipIncomeActive : null,
                         selectedCategoryId === category.id && styles.categoryChipActive,
                       ]}
                       onPress={() => setSelectedCategoryId(category.id)}
@@ -819,14 +821,14 @@ const styles = StyleSheet.create({
   },
   typeChipActive: {
     borderColor: '#0f172a',
-    backgroundColor: 'transparent',
+    backgroundColor: '#0f172a',
   },
   typeChipText: {
     color: '#0f172a',
   },
   typeChipTextActive: {
-    color: '#0f172a',
-    fontWeight: '600',
+    color: '#ffffff',
+    fontWeight: '700',
   },
   categorySection: {
     marginBottom: 12,
@@ -859,14 +861,22 @@ const styles = StyleSheet.create({
   },
   categoryChipActive: {
     borderColor: '#0f172a',
-    backgroundColor: 'transparent',
+    backgroundColor: '#0f172a',
+  },
+  categoryChipExpenseActive: {
+    backgroundColor: '#dc2626',
+    borderColor: '#dc2626',
+  },
+  categoryChipIncomeActive: {
+    backgroundColor: '#16a34a',
+    borderColor: '#16a34a',
   },
   categoryChipText: {
     color: '#0f172a',
     fontWeight: '600',
   },
   categoryChipTextActive: {
-    color: '#0f172a',
+    color: '#ffffff',
     fontWeight: '700',
   },
   modalActions: {
