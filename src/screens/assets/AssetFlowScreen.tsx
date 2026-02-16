@@ -377,8 +377,8 @@ export function AssetFlowScreen() {
                 />
               ) : null}
               <View style={styles.modalActions}>
-                <PrimaryButton title="등록" onPress={handleCreateAccount} />
-                <PrimaryButton title="취소" onPress={() => setAddAccountModalVisible(false)} />
+                <PrimaryButton title="등록" onPress={handleCreateAccount} variant="primary" />
+                <PrimaryButton title="취소" onPress={() => setAddAccountModalVisible(false)} variant="secondary" />
               </View>
             </ScrollView>
           </View>
@@ -411,9 +411,10 @@ export function AssetFlowScreen() {
               <TextField label="은행" value={bankName} onChangeText={setBankName} placeholder="예: 신한은행" />
               <TextField label="상품명" value={productName} onChangeText={setProductName} placeholder="예: 청년희망적금" />
               <View style={styles.modalActions}>
-                <PrimaryButton title="저장" onPress={handleUpdateAccount} />
+                <PrimaryButton title="저장" onPress={handleUpdateAccount} variant="primary" />
                 <PrimaryButton
                   title="취소"
+                  variant="secondary"
                   onPress={() => {
                     setEditAccountModalVisible(false);
                     setEditingAccountId(null);
@@ -455,9 +456,10 @@ export function AssetFlowScreen() {
                 />
               ) : null}
               <View style={styles.modalActions}>
-                <PrimaryButton title={recordEditId === null ? '추가' : '저장'} onPress={handleAddOrUpdateRecord} />
+                <PrimaryButton title={recordEditId === null ? '추가' : '저장'} onPress={handleAddOrUpdateRecord} variant="primary" />
                 <PrimaryButton
                   title="취소"
+                  variant="secondary"
                   onPress={() => {
                     setAddRecordModalVisible(false);
                     setRecordTargetId(null);

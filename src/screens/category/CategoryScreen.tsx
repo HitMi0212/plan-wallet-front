@@ -8,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 
@@ -25,19 +24,13 @@ const typeOptions: { label: string; value: CategoryType }[] = [
   { label: '수입', value: 'INCOME' },
 ];
 
-const expenseKindOptions: { label: string; value: ExpenseCategoryKind }[] = [
-  { label: '일반', value: 'NORMAL' },
-  { label: '예적금', value: 'SAVINGS' },
-  { label: '투자', value: 'INVEST' },
-];
-
-type CategoryFilter = 'ALL' | CategoryType;
+type CategoryFilter = CategoryType;
 
 const filterOptions: { label: string; value: CategoryFilter }[] = [
-  { label: '전체', value: 'ALL' },
   { label: '지출', value: 'EXPENSE' },
   { label: '수입', value: 'INCOME' },
 ];
+
 const FILTER_STORAGE_KEY = 'plan-wallet.category.filter';
 
 function expenseKindLabel(kind?: ExpenseCategoryKind) {
@@ -47,16 +40,12 @@ function expenseKindLabel(kind?: ExpenseCategoryKind) {
 }
 
 export function CategoryScreen() {
-  const { items, loading, error, load, add, update, remove } = useCategoryStore();
+  const { items, loading, error, load, add, remove } = useCategoryStore();
 
   const [name, setName] = useState('');
   const [type, setType] = useState<CategoryType>('EXPENSE');
-  const [filter, setFilter] = useState<CategoryFilter>('ALL');
+  const [filter, setFilter] = useState<CategoryFilter>('EXPENSE');
   const [addModalVisible, setAddModalVisible] = useState(false);
-
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editingName, setEditingName] = useState('');
-  const [editingExpenseKind, setEditingExpenseKind] = useState<ExpenseCategoryKind>('NORMAL');
 
   useEffect(() => {
     load();
@@ -77,8 +66,7 @@ export function CategoryScreen() {
   }, [filter]);
 
   const sortedItems = useMemo(() => {
-    const filtered = filter === 'ALL' ? items : items.filter((item) => item.type === filter);
-
+    const filtered = items.filter((item) => item.type === filter);
     return [...filtered].sort((a, b) => a.name.localeCompare(b.name));
   }, [items, filter]);
 
@@ -87,31 +75,16 @@ export function CategoryScreen() {
       Alert.alert('입력 오류', '카테고리 이름을 입력해 주세요.');
       return;
     }
+
     await add({
       name: name.trim(),
       type,
       expenseKind: 'NORMAL',
     });
+
     setAddModalVisible(false);
     setName('');
     setType('EXPENSE');
-  };
-
-  const startEdit = (id: number, currentName: string, currentType: CategoryType, currentExpenseKind?: ExpenseCategoryKind) => {
-    setEditingId(id);
-    setEditingName(currentName);
-    setEditingExpenseKind(currentType === 'EXPENSE' ? currentExpenseKind ?? 'NORMAL' : 'NORMAL');
-  };
-
-  const handleUpdate = async (currentType: CategoryType) => {
-    if (editingId === null) return;
-    if (!editingName.trim()) {
-      Alert.alert('입력 오류', '카테고리 이름을 입력해 주세요.');
-      return;
-    }
-    await update(editingId, editingName.trim(), currentType === 'EXPENSE' ? editingExpenseKind : 'NORMAL');
-    setEditingId(null);
-    setEditingName('');
   };
 
   const handleDelete = (id: number) => {
@@ -131,7 +104,7 @@ export function CategoryScreen() {
           <Pressable
             style={styles.refreshButton}
             onPress={() => {
-              setType('EXPENSE');
+              setType(filter);
               setName('');
               setAddModalVisible(true);
             }}
@@ -140,6 +113,7 @@ export function CategoryScreen() {
           </Pressable>
         </View>
       </View>
+
       <View style={styles.typeRow}>
         {filterOptions.map((option) => (
           <Pressable
@@ -162,69 +136,17 @@ export function CategoryScreen() {
         ListEmptyComponent={<EmptyState title="등록된 카테고리가 없습니다." description="카테고리를 추가해 주세요." />}
         renderItem={({ item }) => (
           <View style={styles.listItem}>
-            {editingId === item.id ? (
-              <View style={styles.editBox}>
-                <TextInput style={styles.editInput} value={editingName} onChangeText={setEditingName} />
-                {item.type === 'EXPENSE' ? (
-                  <View style={styles.typeRow}>
-                    {expenseKindOptions.map((option) => (
-                      <Pressable
-                        key={option.value}
-                        style={[styles.typeChip, editingExpenseKind === option.value && styles.typeChipActive]}
-                        onPress={() => setEditingExpenseKind(option.value)}
-                      >
-                        <Text
-                          style={
-                            editingExpenseKind === option.value ? styles.typeChipTextActive : styles.typeChipText
-                          }
-                        >
-                          {option.label}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                ) : null}
-                <View style={styles.actions}>
-                  <Pressable style={styles.actionButton} onPress={() => handleUpdate(item.type)}>
-                    <Text style={styles.actionText}>저장</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.actionButton, styles.cancelButton]}
-                    onPress={() => {
-                      setEditingId(null);
-                      setEditingName('');
-                    }}
-                  >
-                    <Text style={styles.actionText}>취소</Text>
-                  </Pressable>
-                </View>
-              </View>
-            ) : (
-              <>
-                <View>
-                  <Text style={styles.itemName}>{item.name}</Text>
-                  <Text style={styles.itemType}>
-                    {item.type === 'EXPENSE'
-                      ? `지출 · ${expenseKindLabel(item.expenseKind)}`
-                      : '수입'}
-                  </Text>
-                </View>
-                <View style={styles.actions}>
-                  <Pressable
-                    style={styles.actionButton}
-                    onPress={() => startEdit(item.id, item.name, item.type, item.expenseKind)}
-                  >
-                    <Text style={styles.actionText}>수정</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.actionButton, styles.deleteButton]}
-                    onPress={() => handleDelete(item.id)}
-                  >
-                    <Text style={[styles.actionText, styles.deleteActionText]}>삭제</Text>
-                  </Pressable>
-                </View>
-              </>
-            )}
+            <View>
+              <Text style={styles.itemName}>{item.name}</Text>
+              <Text style={styles.itemType}>
+                {item.type === 'EXPENSE' ? `지출 · ${expenseKindLabel(item.expenseKind)}` : '수입'}
+              </Text>
+            </View>
+            <View style={styles.actions}>
+              <Pressable style={[styles.actionButton, styles.deleteButton]} onPress={() => handleDelete(item.id)}>
+                <Text style={[styles.actionText, styles.deleteActionText]}>삭제</Text>
+              </Pressable>
+            </View>
           </View>
         )}
       />
@@ -254,13 +176,19 @@ export function CategoryScreen() {
               </View>
               <TextField label="카테고리 이름" value={name} onChangeText={setName} placeholder="예: 식비" />
               <View style={styles.modalActions}>
-                <PrimaryButton title={loading ? '처리 중...' : '추가'} onPress={handleAdd} disabled={loading} />
-                <PrimaryButton title="취소" onPress={() => setAddModalVisible(false)} />
+                <PrimaryButton
+                  title={loading ? '처리 중...' : '추가'}
+                  onPress={handleAdd}
+                  disabled={loading}
+                  variant="primary"
+                />
+                <PrimaryButton title="취소" onPress={() => setAddModalVisible(false)} variant="secondary" />
               </View>
             </ScrollView>
           </View>
         </View>
       </Modal>
+
       {loading ? <LoadingOverlay /> : null}
     </View>
   );
@@ -361,9 +289,6 @@ const styles = StyleSheet.create({
   deleteButton: {
     borderColor: '#ef4444',
   },
-  cancelButton: {
-    borderColor: '#94a3b8',
-  },
   actionText: {
     color: '#0f172a',
     fontSize: 12,
@@ -371,17 +296,6 @@ const styles = StyleSheet.create({
   },
   deleteActionText: {
     color: '#dc2626',
-  },
-  editBox: {
-    flex: 1,
-    gap: 8,
-  },
-  editInput: {
-    borderWidth: 1,
-    borderColor: '#cbd5f5',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
   },
   modalBackdrop: {
     flex: 1,
