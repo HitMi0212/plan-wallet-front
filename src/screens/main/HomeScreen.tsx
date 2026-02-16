@@ -1,5 +1,6 @@
 import dayjs from 'dayjs';
 import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   Alert,
@@ -55,6 +56,13 @@ export function HomeScreen({ navigation }: { navigation: any }) {
     }
   }, [categories.length, loadCategories]);
 
+  useFocusEffect(
+    React.useCallback(() => {
+      load();
+      loadCategories();
+    }, [load, loadCategories])
+  );
+
   const monthItems = useMemo(() => {
     return items.filter((item) => {
       const occurred = dayjs(item.occurredAt);
@@ -98,7 +106,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
       incomeTotal: income,
       expenseTotal: expense,
       normalExpense: Math.max(expense - nonRegularExpense, 0),
-      monthlyAsset: income - Math.max(expense - nonRegularExpense, 0),
+      monthlyAsset: income - expense,
       savingsAmount: savings,
       investAmount: invest,
     };
@@ -193,12 +201,12 @@ export function HomeScreen({ navigation }: { navigation: any }) {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.heroCard}>
-        <Text style={styles.heroLabel}>현재 자산(이번달 실질)</Text>
+        <Text style={styles.heroLabel}>현재 자산(이번달)</Text>
         <Text style={styles.heroValue}>{monthlyAsset.toLocaleString()}원</Text>
         {savingsAmount > 0 || investAmount > 0 ? (
           <Text style={styles.savingsText}>예적금 {savingsAmount.toLocaleString()}원 · 투자 {investAmount.toLocaleString()}원</Text>
         ) : null}
-        <Text style={styles.heroSub}>{monthLabel} 수입 - 일반지출</Text>
+        <Text style={styles.heroSub}>{monthLabel} 수입 - 전체지출(예적금/투자 포함)</Text>
       </View>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -219,7 +227,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
 
       <View style={styles.monthListCard}>
         <View style={styles.monthListHeader}>
-          <Text style={styles.monthListTitle}>금일 소비</Text>
+          <Text style={styles.monthListTitle}>금일 소비 ({dayjs().format('M월 D일')})</Text>
           <Pressable
             style={styles.inlineAddButton}
             onPress={() => {
@@ -237,10 +245,10 @@ export function HomeScreen({ navigation }: { navigation: any }) {
             {todayItems.map((item) => (
               <View key={item.id} style={styles.monthItemRow}>
                 <View>
-                  <Text style={styles.monthItemDate}>{dayjs(item.occurredAt).format('MM.DD')}</Text>
                   <Text style={styles.monthItemCategory}>
                     {categoryMap.get(item.categoryId)?.name ?? `카테고리 ${item.categoryId}`}
                   </Text>
+                  {item.memo ? <Text style={styles.monthItemMemo}>{item.memo}</Text> : null}
                 </View>
                 <Text style={item.type === 'INCOME' ? styles.monthItemIncome : styles.monthItemExpense}>
                   {item.type === 'INCOME' ? '+' : '-'}
@@ -496,14 +504,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
   },
-  monthItemDate: {
-    color: '#475569',
-    fontWeight: '600',
-  },
   monthItemCategory: {
     color: '#0f172a',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  monthItemMemo: {
+    color: '#64748b',
     fontSize: 12,
-    fontWeight: '600',
     marginTop: 2,
   },
   monthItemIncome: {

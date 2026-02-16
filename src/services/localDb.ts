@@ -21,9 +21,34 @@ interface LocalTransaction extends Transaction {
   userId: number;
 }
 
+export type AssetFlowType = 'SAVINGS' | 'INVEST';
+
+export interface AssetFlowRecord {
+  id: number;
+  amount: number;
+  occurredAt: string;
+  memo: string | null;
+  transactionId?: number;
+}
+
+export interface AssetFlowAccount {
+  id: number;
+  type: AssetFlowType;
+  bankName: string;
+  productName: string;
+  records: AssetFlowRecord[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface LocalAssetFlowAccount extends AssetFlowAccount {
+  userId: number;
+}
+
 export const USERS_KEY = 'plan-wallet.local.users';
 export const CATEGORIES_KEY = 'plan-wallet.local.categories';
 export const TRANSACTIONS_KEY = 'plan-wallet.local.transactions';
+export const ASSET_FLOWS_KEY = 'plan-wallet.local.asset_flows';
 
 const ACCESS_PREFIX = 'local-access-';
 const REFRESH_PREFIX = 'local-refresh-';
@@ -62,6 +87,11 @@ function toPublicCategory(item: LocalCategory): Category {
 function toPublicTransaction(item: LocalTransaction): Transaction {
   const { userId, ...transaction } = item;
   return transaction;
+}
+
+function toPublicAssetFlowAccount(item: LocalAssetFlowAccount): AssetFlowAccount {
+  const { userId, ...account } = item;
+  return account;
 }
 
 function parseUserIdFromAccessToken(token: string | null): number | null {
@@ -254,6 +284,312 @@ export async function deleteLocalTransaction(userId: number, id: number): Promis
 
   const nextTransactions = transactions.filter((item) => !(item.userId === userId && item.id === id));
   await writeList(TRANSACTIONS_KEY, nextTransactions);
+}
+
+export async function getLocalAssetFlowAccounts(userId: number): Promise<AssetFlowAccount[]> {
+  const items = await readList<LocalAssetFlowAccount>(ASSET_FLOWS_KEY);
+  return items.filter((item) => item.userId === userId).map(toPublicAssetFlowAccount);
+}
+
+export async function createLocalAssetFlowAccount(
+  userId: number,
+  payload: {
+    type: AssetFlowType;
+    bankName: string;
+    productName: string;
+    amount: number;
+    occurredAt: string;
+    memo?: string | null;
+  }
+): Promise<AssetFlowAccount> {
+  const items = await readList<LocalAssetFlowAccount>(ASSET_FLOWS_KEY);
+  const categories = await readList<LocalCategory>(CATEGORIES_KEY);
+  const transactions = await readList<LocalTransaction>(TRANSACTIONS_KEY);
+  const timestamp = nowIso();
+  const transactionId = nextId(transactions);
+
+  const created: LocalAssetFlowAccount = {
+    id: nextId(items),
+    userId,
+    type: payload.type,
+    bankName: payload.bankName.trim(),
+    productName: payload.productName.trim(),
+    records: [
+      {
+        id: 1,
+        amount: payload.amount,
+        occurredAt: payload.occurredAt,
+        memo: payload.memo?.trim() || null,
+        transactionId,
+      },
+    ],
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+
+  items.push(created);
+  const expenseKind = payload.type === 'SAVINGS' ? 'SAVINGS' : 'INVEST';
+  let category = categories.find(
+    (item) => item.userId === userId && item.type === 'EXPENSE' && (item.expenseKind ?? 'NORMAL') === expenseKind
+  );
+  if (!category) {
+    category = {
+      id: nextId(categories),
+      userId,
+      type: 'EXPENSE',
+      expenseKind,
+      name: payload.type === 'SAVINGS' ? '예적금' : '투자',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    categories.push(category);
+  }
+
+  transactions.push({
+    id: transactionId,
+    userId,
+    type: 'EXPENSE',
+    amount: payload.amount,
+    categoryId: category.id,
+    memo:
+      payload.memo?.trim() ||
+      `[${payload.type === 'SAVINGS' ? '예적금' : '투자'}] ${payload.bankName.trim()} ${payload.productName.trim()}`,
+    occurredAt: payload.occurredAt,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+
+  await writeList(ASSET_FLOWS_KEY, items);
+  await writeList(CATEGORIES_KEY, categories);
+  await writeList(TRANSACTIONS_KEY, transactions);
+  return toPublicAssetFlowAccount(created);
+}
+
+export async function addLocalAssetFlowRecord(
+  userId: number,
+  accountId: number,
+  payload: {
+    amount: number;
+    occurredAt: string;
+    memo?: string | null;
+  }
+): Promise<AssetFlowAccount> {
+  const items = await readList<LocalAssetFlowAccount>(ASSET_FLOWS_KEY);
+  const categories = await readList<LocalCategory>(CATEGORIES_KEY);
+  const transactions = await readList<LocalTransaction>(TRANSACTIONS_KEY);
+  const target = items.find((item) => item.userId === userId && item.id === accountId);
+  if (!target) {
+    throw new Error('ASSET_ACCOUNT_NOT_FOUND');
+  }
+
+  const nextRecordId = nextId(target.records);
+  const transactionId = nextId(transactions);
+  target.records.push({
+    id: nextRecordId,
+    amount: payload.amount,
+    occurredAt: payload.occurredAt,
+    memo: payload.memo?.trim() || null,
+    transactionId,
+  });
+  target.updatedAt = nowIso();
+
+  const expenseKind = target.type === 'SAVINGS' ? 'SAVINGS' : 'INVEST';
+  let category = categories.find(
+    (item) => item.userId === userId && item.type === 'EXPENSE' && (item.expenseKind ?? 'NORMAL') === expenseKind
+  );
+  if (!category) {
+    category = {
+      id: nextId(categories),
+      userId,
+      type: 'EXPENSE',
+      expenseKind,
+      name: target.type === 'SAVINGS' ? '예적금' : '투자',
+      createdAt: target.updatedAt,
+      updatedAt: target.updatedAt,
+    };
+    categories.push(category);
+  }
+
+  transactions.push({
+    id: transactionId,
+    userId,
+    type: 'EXPENSE',
+    amount: payload.amount,
+    categoryId: category.id,
+    memo:
+      payload.memo?.trim() ||
+      `[${target.type === 'SAVINGS' ? '예적금' : '투자'}] ${target.bankName} ${target.productName}`,
+    occurredAt: payload.occurredAt,
+    createdAt: target.updatedAt,
+    updatedAt: target.updatedAt,
+  });
+
+  await writeList(ASSET_FLOWS_KEY, items);
+  await writeList(CATEGORIES_KEY, categories);
+  await writeList(TRANSACTIONS_KEY, transactions);
+  return toPublicAssetFlowAccount(target);
+}
+
+export async function syncLocalAssetFlowToTransactions(userId: number): Promise<void> {
+  const items = await readList<LocalAssetFlowAccount>(ASSET_FLOWS_KEY);
+  const categories = await readList<LocalCategory>(CATEGORIES_KEY);
+  const transactions = await readList<LocalTransaction>(TRANSACTIONS_KEY);
+  let changed = false;
+
+  const getOrCreateCategory = (type: AssetFlowType, timestamp: string) => {
+    const expenseKind = type === 'SAVINGS' ? 'SAVINGS' : 'INVEST';
+    let category = categories.find(
+      (item) => item.userId === userId && item.type === 'EXPENSE' && (item.expenseKind ?? 'NORMAL') === expenseKind
+    );
+    if (!category) {
+      category = {
+        id: nextId(categories),
+        userId,
+        type: 'EXPENSE',
+        expenseKind,
+        name: type === 'SAVINGS' ? '예적금' : '투자',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+      categories.push(category);
+      changed = true;
+    }
+    return category;
+  };
+
+  items
+    .filter((account) => account.userId === userId)
+    .forEach((account) => {
+      const category = getOrCreateCategory(account.type, account.updatedAt);
+      account.records.forEach((record) => {
+        const linked = record.transactionId
+          ? transactions.find((txn) => txn.userId === userId && txn.id === record.transactionId)
+          : null;
+        if (linked) {
+          return;
+        }
+        const createdAt = nowIso();
+        const txId = nextId(transactions);
+        transactions.push({
+          id: txId,
+          userId,
+          type: 'EXPENSE',
+          amount: record.amount,
+          categoryId: category.id,
+          memo:
+            record.memo?.trim() ||
+            `[${account.type === 'SAVINGS' ? '예적금' : '투자'}] ${account.bankName} ${account.productName}`,
+          occurredAt: record.occurredAt,
+          createdAt,
+          updatedAt: createdAt,
+        });
+        record.transactionId = txId;
+        changed = true;
+      });
+    });
+
+  if (!changed) return;
+  await writeList(ASSET_FLOWS_KEY, items);
+  await writeList(CATEGORIES_KEY, categories);
+  await writeList(TRANSACTIONS_KEY, transactions);
+}
+
+export async function updateLocalAssetFlowRecord(
+  userId: number,
+  accountId: number,
+  recordId: number,
+  payload: { amount: number; occurredAt: string; memo?: string | null }
+): Promise<AssetFlowAccount> {
+  const items = await readList<LocalAssetFlowAccount>(ASSET_FLOWS_KEY);
+  const categories = await readList<LocalCategory>(CATEGORIES_KEY);
+  const transactions = await readList<LocalTransaction>(TRANSACTIONS_KEY);
+  const account = items.find((item) => item.userId === userId && item.id === accountId);
+  if (!account) throw new Error('ASSET_ACCOUNT_NOT_FOUND');
+
+  const record = account.records.find((item) => item.id === recordId);
+  if (!record) throw new Error('ASSET_RECORD_NOT_FOUND');
+
+  record.amount = payload.amount;
+  record.occurredAt = payload.occurredAt;
+  record.memo = payload.memo?.trim() || null;
+  account.updatedAt = nowIso();
+
+  const expenseKind = account.type === 'SAVINGS' ? 'SAVINGS' : 'INVEST';
+  let category = categories.find(
+    (item) => item.userId === userId && item.type === 'EXPENSE' && (item.expenseKind ?? 'NORMAL') === expenseKind
+  );
+  if (!category) {
+    category = {
+      id: nextId(categories),
+      userId,
+      type: 'EXPENSE',
+      expenseKind,
+      name: account.type === 'SAVINGS' ? '예적금' : '투자',
+      createdAt: account.updatedAt,
+      updatedAt: account.updatedAt,
+    };
+    categories.push(category);
+  }
+
+  let txn = record.transactionId
+    ? transactions.find((item) => item.userId === userId && item.id === record.transactionId)
+    : null;
+  if (!txn) {
+    const txId = nextId(transactions);
+    txn = {
+      id: txId,
+      userId,
+      type: 'EXPENSE',
+      amount: payload.amount,
+      categoryId: category.id,
+      memo:
+        record.memo?.trim() ||
+        `[${account.type === 'SAVINGS' ? '예적금' : '투자'}] ${account.bankName} ${account.productName}`,
+      occurredAt: payload.occurredAt,
+      createdAt: account.updatedAt,
+      updatedAt: account.updatedAt,
+    };
+    transactions.push(txn);
+    record.transactionId = txId;
+  } else {
+    txn.amount = payload.amount;
+    txn.occurredAt = payload.occurredAt;
+    txn.categoryId = category.id;
+    txn.memo =
+      record.memo?.trim() ||
+      `[${account.type === 'SAVINGS' ? '예적금' : '투자'}] ${account.bankName} ${account.productName}`;
+    txn.updatedAt = account.updatedAt;
+  }
+
+  await writeList(ASSET_FLOWS_KEY, items);
+  await writeList(CATEGORIES_KEY, categories);
+  await writeList(TRANSACTIONS_KEY, transactions);
+  return toPublicAssetFlowAccount(account);
+}
+
+export async function deleteLocalAssetFlowRecord(
+  userId: number,
+  accountId: number,
+  recordId: number
+): Promise<AssetFlowAccount> {
+  const items = await readList<LocalAssetFlowAccount>(ASSET_FLOWS_KEY);
+  const transactions = await readList<LocalTransaction>(TRANSACTIONS_KEY);
+  const account = items.find((item) => item.userId === userId && item.id === accountId);
+  if (!account) throw new Error('ASSET_ACCOUNT_NOT_FOUND');
+  const record = account.records.find((item) => item.id === recordId);
+  if (!record) throw new Error('ASSET_RECORD_NOT_FOUND');
+
+  account.records = account.records.filter((item) => item.id !== recordId);
+  account.updatedAt = nowIso();
+
+  if (record.transactionId) {
+    const nextTransactions = transactions.filter(
+      (item) => !(item.userId === userId && item.id === record.transactionId)
+    );
+    await writeList(TRANSACTIONS_KEY, nextTransactions);
+  }
+  await writeList(ASSET_FLOWS_KEY, items);
+  return toPublicAssetFlowAccount(account);
 }
 
 export async function seedDemoDataIfEmpty(userId: number): Promise<void> {

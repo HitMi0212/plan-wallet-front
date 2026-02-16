@@ -3,6 +3,11 @@ import { render } from '@testing-library/react-native';
 
 import { HomeScreen } from '../screens/main/HomeScreen';
 
+jest.mock('@react-navigation/native', () => ({
+  ...jest.requireActual('@react-navigation/native'),
+  useFocusEffect: jest.fn(),
+}));
+
 jest.mock('../stores/transactionStore', () => ({
   useTransactionStore: () => ({
     items: [],
@@ -17,7 +22,7 @@ describe('HomeScreen', () => {
     const { getByText } = render(
       <HomeScreen navigation={{ navigate: jest.fn(), setOptions: jest.fn() }} />
     );
-    expect(getByText('금일 소비')).toBeTruthy();
+    expect(getByText(/금일 소비/)).toBeTruthy();
     expect(getByText('등록')).toBeTruthy();
   });
 });

@@ -1,5 +1,6 @@
 import dayjs from 'dayjs';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   Alert,
@@ -60,6 +61,13 @@ export function TransactionScreen() {
       loadCategories();
     }
   }, [categories.length, loadCategories]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      load();
+      loadCategories();
+    }, [load, loadCategories])
+  );
 
   const sortedItems = useMemo(
     () =>
@@ -383,6 +391,7 @@ export function TransactionScreen() {
                   <Text style={styles.itemMeta}>
                     {dayjs(item.occurredAt).format('YYYY-MM-DD')}
                   </Text>
+                  {item.memo ? <Text style={styles.itemMemo}>{item.memo}</Text> : null}
                 </View>
                 <View style={styles.actions}>
                   <Pressable style={styles.actionButton} onPress={() => startEdit(item.id)}>
@@ -735,6 +744,11 @@ const styles = StyleSheet.create({
   itemMeta: {
     fontSize: 12,
     color: '#64748b',
+  },
+  itemMemo: {
+    fontSize: 12,
+    color: '#475569',
+    marginTop: 2,
   },
   actions: {
     flexDirection: 'row',

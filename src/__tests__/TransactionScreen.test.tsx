@@ -3,6 +3,11 @@ import { render } from '@testing-library/react-native';
 
 import { TransactionScreen } from '../screens/transaction/TransactionScreen';
 
+jest.mock('@react-navigation/native', () => ({
+  ...jest.requireActual('@react-navigation/native'),
+  useFocusEffect: jest.fn(),
+}));
+
 jest.mock('../stores/transactionStore', () => ({
   useTransactionStore: () => ({
     items: [],
@@ -18,7 +23,7 @@ jest.mock('../stores/transactionStore', () => ({
 describe('TransactionScreen', () => {
   it('renders empty state', () => {
     const { getByText } = render(<TransactionScreen />);
-    expect(getByText('거래 목록')).toBeTruthy();
-    expect(getByText('거래 내역이 없습니다.')).toBeTruthy();
+    expect(getByText('추가')).toBeTruthy();
+    expect(getByText('선택한 날짜의 거래가 없습니다.')).toBeTruthy();
   });
 });
