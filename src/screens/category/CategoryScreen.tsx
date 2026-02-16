@@ -220,7 +220,7 @@ export function CategoryScreen() {
                     style={[styles.actionButton, styles.deleteButton]}
                     onPress={() => handleDelete(item.id)}
                   >
-                    <Text style={styles.actionText}>삭제</Text>
+                    <Text style={[styles.actionText, styles.deleteActionText]}>삭제</Text>
                   </Pressable>
                 </View>
               </>
@@ -368,6 +368,9 @@ const styles = StyleSheet.create({
     color: '#0f172a',
     fontSize: 12,
     fontWeight: '600',
+  },
+  deleteActionText: {
+    color: '#dc2626',
   },
   editBox: {
     flex: 1,

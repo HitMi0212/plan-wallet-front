@@ -292,10 +292,10 @@ export function AssetFlowScreen() {
                     <Pressable style={[styles.accountActionButton, styles.accountEditButton]} onPress={() => openEditAccountModal(account)}>
                       <Text style={styles.accountActionText}>상품 수정</Text>
                     </Pressable>
-                    <Pressable style={[styles.accountActionButton, styles.accountDeleteButton]} onPress={() => handleDeleteAccount(account.id)}>
-                      <Text style={styles.accountActionText}>상품 삭제</Text>
-                    </Pressable>
-                  </View>
+                <Pressable style={[styles.accountActionButton, styles.accountDeleteButton]} onPress={() => handleDeleteAccount(account.id)}>
+                  <Text style={[styles.accountActionText, styles.accountDeleteText]}>상품 삭제</Text>
+                </Pressable>
+              </View>
                   <Pressable style={styles.addRecordButton} onPress={() => openAddRecordModal(account.id)}>
                     <Text style={styles.addRecordButtonText}>입금 내역 추가</Text>
                   </Pressable>
@@ -318,7 +318,7 @@ export function AssetFlowScreen() {
                             style={[styles.smallButton, styles.deleteButton]}
                             onPress={() => handleDeleteRecord(account.id, record.id)}
                           >
-                            <Text style={styles.smallButtonText}>삭제</Text>
+                            <Text style={[styles.smallButtonText, styles.smallDeleteButtonText]}>삭제</Text>
                           </Pressable>
                         </View>
                       </View>
@@ -590,6 +590,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  accountDeleteText: {
+    color: '#dc2626',
+  },
   addRecordButton: {
     borderWidth: 1,
     borderColor: '#2563eb',
@@ -653,6 +656,9 @@ const styles = StyleSheet.create({
     color: '#0f172a',
     fontSize: 11,
     fontWeight: '700',
+  },
+  smallDeleteButtonText: {
+    color: '#dc2626',
   },
   loadingText: {
     color: '#64748b',
