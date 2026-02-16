@@ -23,6 +23,12 @@ export interface CategoryTotalResponse {
   total: number;
 }
 
+export interface DailyTotalResponse {
+  date: string;
+  incomeTotal: number;
+  expenseTotal: number;
+}
+
 function toMonthlySummary(year: number, month: number, occurredAtValues: { type: 'INCOME' | 'EXPENSE'; amount: number }[]) {
   const incomeTotal = occurredAtValues
     .filter((item) => item.type === 'INCOME')
@@ -104,4 +110,37 @@ export async function fetchCategoryTotals(from: string, to: string): Promise<Cat
   return [...totals.entries()]
     .map(([categoryId, total]) => ({ categoryId, total }))
     .sort((a, b) => b.total - a.total);
+}
+
+export async function fetchDailyTotals(year: number, month: number): Promise<DailyTotalResponse[]> {
+  const userId = await requireAuthenticatedUserId();
+  const transactions = await getLocalTransactions(userId);
+
+  const monthStart = dayjs(`${year}-${String(month).padStart(2, '0')}-01`).startOf('month');
+  const daysInMonth = monthStart.daysInMonth();
+
+  const totals = new Map<string, { incomeTotal: number; expenseTotal: number }>();
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const key = monthStart.date(day).format('YYYY-MM-DD');
+    totals.set(key, { incomeTotal: 0, expenseTotal: 0 });
+  }
+
+  transactions
+    .filter((item) => {
+      const d = dayjs(item.occurredAt);
+      return d.year() === year && d.month() + 1 === month;
+    })
+    .forEach((item) => {
+      const key = dayjs(item.occurredAt).format('YYYY-MM-DD');
+      const current = totals.get(key);
+      if (!current) return;
+      if (item.type === 'INCOME') current.incomeTotal += item.amount;
+      if (item.type === 'EXPENSE') current.expenseTotal += item.amount;
+    });
+
+  return [...totals.entries()].map(([date, value]) => ({
+    date,
+    incomeTotal: value.incomeTotal,
+    expenseTotal: value.expenseTotal,
+  }));
 }

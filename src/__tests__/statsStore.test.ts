@@ -13,6 +13,10 @@ jest.mock('../services/statsApi', () => ({
     prevExpenseTotal: 400,
   })),
   fetchCategoryTotals: jest.fn(async () => [{ categoryId: 10, total: 500 }]),
+  fetchDailyTotals: jest.fn(async () => [
+    { date: '2025-01-01', incomeTotal: 1000, expenseTotal: 0 },
+    { date: '2025-01-02', incomeTotal: 0, expenseTotal: 500 },
+  ]),
 }));
 
 describe('statsStore', () => {
@@ -21,6 +25,7 @@ describe('statsStore', () => {
       monthly: null,
       comparison: null,
       categoryTotals: [],
+      dailyTotals: [],
       loading: false,
       error: null,
     });

@@ -31,13 +31,12 @@ const expenseKindOptions: { label: string; value: ExpenseCategoryKind }[] = [
   { label: '투자', value: 'INVEST' },
 ];
 
-type CategoryFilter = 'ALL' | ExpenseCategoryKind;
+type CategoryFilter = 'ALL' | CategoryType;
 
 const filterOptions: { label: string; value: CategoryFilter }[] = [
   { label: '전체', value: 'ALL' },
-  { label: '일반', value: 'NORMAL' },
-  { label: '예적금', value: 'SAVINGS' },
-  { label: '투자', value: 'INVEST' },
+  { label: '지출', value: 'EXPENSE' },
+  { label: '수입', value: 'INCOME' },
 ];
 const FILTER_STORAGE_KEY = 'plan-wallet.category.filter';
 
@@ -52,7 +51,6 @@ export function CategoryScreen() {
 
   const [name, setName] = useState('');
   const [type, setType] = useState<CategoryType>('EXPENSE');
-  const [expenseKind, setExpenseKind] = useState<ExpenseCategoryKind>('NORMAL');
   const [filter, setFilter] = useState<CategoryFilter>('ALL');
   const [addModalVisible, setAddModalVisible] = useState(false);
 
@@ -79,10 +77,7 @@ export function CategoryScreen() {
   }, [filter]);
 
   const sortedItems = useMemo(() => {
-    const filtered =
-      filter === 'ALL'
-        ? items
-        : items.filter((item) => item.type === 'EXPENSE' && (item.expenseKind ?? 'NORMAL') === filter);
+    const filtered = filter === 'ALL' ? items : items.filter((item) => item.type === filter);
 
     return [...filtered].sort((a, b) => a.name.localeCompare(b.name));
   }, [items, filter]);
@@ -95,12 +90,11 @@ export function CategoryScreen() {
     await add({
       name: name.trim(),
       type,
-      expenseKind: type === 'EXPENSE' ? expenseKind : 'NORMAL',
+      expenseKind: 'NORMAL',
     });
     setAddModalVisible(false);
     setName('');
     setType('EXPENSE');
-    setExpenseKind('NORMAL');
   };
 
   const startEdit = (id: number, currentName: string, currentType: CategoryType, currentExpenseKind?: ExpenseCategoryKind) => {
@@ -138,7 +132,6 @@ export function CategoryScreen() {
             style={styles.refreshButton}
             onPress={() => {
               setType('EXPENSE');
-              setExpenseKind('NORMAL');
               setName('');
               setAddModalVisible(true);
             }}
@@ -262,21 +255,6 @@ export function CategoryScreen() {
                   </Pressable>
                 ))}
               </View>
-              {type === 'EXPENSE' ? (
-                <View style={styles.typeRow}>
-                  {expenseKindOptions.map((option) => (
-                    <Pressable
-                      key={option.value}
-                      style={[styles.typeChip, expenseKind === option.value && styles.typeChipActive]}
-                      onPress={() => setExpenseKind(option.value)}
-                    >
-                      <Text style={expenseKind === option.value ? styles.typeChipTextActive : styles.typeChipText}>
-                        {option.label}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              ) : null}
               <TextField label="카테고리 이름" value={name} onChangeText={setName} placeholder="예: 식비" />
               <View style={styles.modalActions}>
                 <PrimaryButton title={loading ? '처리 중...' : '추가'} onPress={handleAdd} disabled={loading} />

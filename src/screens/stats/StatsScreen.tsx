@@ -1,7 +1,7 @@
 ﻿import dayjs from 'dayjs';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { BarChart, PieChart } from 'react-native-chart-kit';
+import { LineChart, PieChart } from 'react-native-chart-kit';
 
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorBanner } from '../../components/ErrorBanner';
@@ -11,7 +11,7 @@ import { useStatsStore } from '../../stores/statsStore';
 const screenWidth = Dimensions.get('window').width;
 
 export function StatsScreen() {
-  const { monthly, comparison, categoryTotals, loading, error, load } = useStatsStore();
+  const { monthly, comparison, categoryTotals, dailyTotals, loading, error, load } = useStatsStore();
 
   const today = dayjs();
   const [year, setYear] = useState(today.year());
@@ -36,13 +36,29 @@ export function StatsScreen() {
     load(year, month);
   }, [load, year, month]);
 
-  const chartData = useMemo(() => {
-    if (!monthly) return null;
+  const dailyChartData = useMemo(() => {
+    if (!dailyTotals || dailyTotals.length === 0) return null;
+    const labels = dailyTotals.map((item) => {
+      const day = dayjs(item.date).date();
+      return day === 1 || day % 5 === 0 ? `${day}` : '';
+    });
     return {
-      labels: ['수입', '지출'],
-      datasets: [{ data: [monthly.incomeTotal, monthly.expenseTotal] }],
+      labels,
+      datasets: [
+        {
+          data: dailyTotals.map((item) => item.incomeTotal),
+          color: () => '#16a34a',
+          strokeWidth: 2,
+        },
+        {
+          data: dailyTotals.map((item) => item.expenseTotal),
+          color: () => '#dc2626',
+          strokeWidth: 2,
+        },
+      ],
+      legend: ['수입', '지출'],
     };
-  }, [monthly]);
+  }, [dailyTotals]);
 
   const pieData = useMemo(() => {
     return categoryTotals.map((item, index) => ({
@@ -56,6 +72,16 @@ export function StatsScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      {loading ? <LoadingOverlay /> : null}
+      {error ? <ErrorBanner message={error} /> : null}
+
+      {monthly ? (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>월간 합계</Text>
+          <Text style={styles.summaryText}>수입: {monthly.incomeTotal.toLocaleString()}원</Text>
+          <Text style={styles.summaryText}>지출: {monthly.expenseTotal.toLocaleString()}원</Text>
+        </View>
+      ) : null}
 
       <View style={styles.controls}>
         <Pressable style={styles.controlButton} onPress={() => moveMonth(-1)}>
@@ -67,25 +93,21 @@ export function StatsScreen() {
         </Pressable>
       </View>
 
-      {loading ? <LoadingOverlay /> : null}
-      {error ? <ErrorBanner message={error} /> : null}
-
       {!loading && !error && !monthly ? (
         <EmptyState title="통계 데이터가 없습니다." description="거래를 추가한 후 확인해 주세요." />
       ) : null}
 
-      {monthly && chartData && (
+      {monthly && dailyChartData && (
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>월간 합계</Text>
-          <Text style={styles.summaryText}>수입: {monthly.incomeTotal.toLocaleString()}원</Text>
-          <Text style={styles.summaryText}>지출: {monthly.expenseTotal.toLocaleString()}원</Text>
-          <BarChart
-            data={chartData}
+          <Text style={styles.sectionTitle}>월간 차트(일별)</Text>
+          <LineChart
+            data={dailyChartData}
             width={screenWidth - 48}
-            height={220}
+            height={240}
             yAxisLabel=""
             chartConfig={chartConfig}
             fromZero
+            bezier={false}
             style={styles.chart}
           />
         </View>
@@ -141,11 +163,6 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingBottom: 40,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    marginBottom: 16,
-  },
   controls: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -166,14 +183,6 @@ const styles = StyleSheet.create({
   controlLabel: {
     fontSize: 16,
     fontWeight: '700',
-  },
-  info: {
-    marginBottom: 8,
-    color: '#64748b',
-  },
-  error: {
-    color: '#ef4444',
-    marginBottom: 8,
   },
   card: {
     backgroundColor: '#fff',
