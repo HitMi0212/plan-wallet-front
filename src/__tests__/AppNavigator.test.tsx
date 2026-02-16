@@ -29,6 +29,10 @@ jest.mock('../screens/assets/AssetFlowScreen', () => ({
   AssetFlowScreen: () => <></>,
 }));
 
+jest.mock('../screens/assets/TotalWealthScreen', () => ({
+  TotalWealthScreen: () => <></>,
+}));
+
 jest.mock('../screens/settings/SettingsScreen', () => ({
   SettingsScreen: () => <></>,
 }));

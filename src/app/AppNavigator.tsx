@@ -4,6 +4,7 @@ import dayjs from 'dayjs';
 import React, { useEffect } from 'react';
 
 import { AssetFlowScreen } from '../screens/assets/AssetFlowScreen';
+import { TotalWealthScreen } from '../screens/assets/TotalWealthScreen';
 import { CategoryScreen } from '../screens/category/CategoryScreen';
 import { BootScreen } from '../screens/common/BootScreen';
 import { HomeScreen } from '../screens/main/HomeScreen';
@@ -31,6 +32,7 @@ function MainTabNavigator() {
       <MainTabs.Screen name="Categories" component={CategoryScreen} options={{ tabBarLabel: '카테고리' }} />
       <MainTabs.Screen name="Stats" component={StatsScreen} options={{ tabBarLabel: '통계' }} />
       <MainTabs.Screen name="AssetFlows" component={AssetFlowScreen} options={{ tabBarLabel: '예적금/투자' }} />
+      <MainTabs.Screen name="TotalWealth" component={TotalWealthScreen} options={{ tabBarLabel: '총재산' }} />
       <MainTabs.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: '설정' }} />
     </MainTabs.Navigator>
   );

@@ -184,6 +184,7 @@ export function CategoryScreen() {
         data={sortedItems}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.list}
+        keyboardShouldPersistTaps="handled"
         ListEmptyComponent={<EmptyState title="등록된 카테고리가 없습니다." description="카테고리를 추가해 주세요." />}
         renderItem={({ item }) => (
           <View style={styles.listItem}>

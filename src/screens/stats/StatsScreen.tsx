@@ -1,6 +1,6 @@
 ﻿import dayjs from 'dayjs';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BarChart, PieChart } from 'react-native-chart-kit';
 
 import { EmptyState } from '../../components/EmptyState';
@@ -55,7 +55,7 @@ export function StatsScreen() {
   }, [categoryTotals]);
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
 
       <View style={styles.controls}>
         <Pressable style={styles.controlButton} onPress={() => moveMonth(-1)}>
@@ -121,7 +121,7 @@ export function StatsScreen() {
           />
         </View>
       )}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -135,8 +135,11 @@ const chartConfig = {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
     backgroundColor: '#f8fafc',
+  },
+  contentContainer: {
+    padding: 24,
+    paddingBottom: 40,
   },
   title: {
     fontSize: 24,

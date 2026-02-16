@@ -4,8 +4,10 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   Alert,
   FlatList,
+  Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -37,6 +39,7 @@ export function TransactionScreen() {
   const [memo, setMemo] = useState('');
   const [occurredAt, setOccurredAt] = useState(dayjs().toISOString());
   const [showOccurredDatePicker, setShowOccurredDatePicker] = useState(false);
+  const [addModalVisible, setAddModalVisible] = useState(false);
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingAmount, setEditingAmount] = useState('');
@@ -75,6 +78,15 @@ export function TransactionScreen() {
     ? dayjs(editingOccurredAt).toDate()
     : new Date();
 
+  const resetAddForm = () => {
+    setType('EXPENSE');
+    setAmount('');
+    setSelectedCategoryId(null);
+    setMemo('');
+    setOccurredAt(dayjs().toISOString());
+    setShowOccurredDatePicker(false);
+  };
+
   const handleAdd = async () => {
     const parsedAmount = Number(amount);
     const parsedCategory = selectedCategoryId ?? 0;
@@ -96,11 +108,8 @@ export function TransactionScreen() {
       occurredAt,
     });
 
-    setAmount('');
-    setSelectedCategoryId(null);
-    setMemo('');
-    setOccurredAt(dayjs().toISOString());
-    setShowOccurredDatePicker(false);
+    setAddModalVisible(false);
+    resetAddForm();
   };
 
   const startEdit = (id: number) => {
@@ -150,89 +159,31 @@ export function TransactionScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.formCard}>
-        <Text style={styles.sectionTitle}>새 거래</Text>
-        <View style={styles.typeRow}>
-          {typeOptions.map((option) => (
-            <Pressable
-              key={option.value}
-              style={[styles.typeChip, type === option.value && styles.typeChipActive]}
-              onPress={() => setType(option.value)}
-            >
-              <Text style={type === option.value ? styles.typeChipTextActive : styles.typeChipText}>
-                {option.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-        <TextField label="금액" value={amount} onChangeText={setAmount} placeholder="예: 12000" />
-        <View style={styles.categorySection}>
-          <Text style={styles.categoryLabel}>카테고리</Text>
-          <View style={styles.categoryRow}>
-            {sortedCategories.map((category) => (
-              <Pressable
-                key={category.id}
-                style={[
-                  styles.categoryChip,
-                  category.type === 'EXPENSE' ? styles.categoryChipExpense : styles.categoryChipIncome,
-                  selectedCategoryId === category.id && styles.categoryChipActive,
-                ]}
-                onPress={() => setSelectedCategoryId(category.id)}
-              >
-                <Text
-                  style={
-                    selectedCategoryId === category.id ? styles.categoryChipTextActive : styles.categoryChipText
-                  }
-                >
-                  {category.name}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-          {sortedCategories.length === 0 ? (
-            <Text style={styles.helperText}>카테고리를 먼저 추가해 주세요.</Text>
-          ) : null}
-        </View>
-        <TextField label="메모" value={memo} onChangeText={setMemo} placeholder="예: 점심" />
-
-        <View style={styles.dateField}>
-          <Text style={styles.dateFieldLabel}>발생일</Text>
-          <Pressable style={styles.dateButton} onPress={() => setShowOccurredDatePicker(true)}>
-            <Text style={styles.dateButtonText}>{dayjs(occurredAt).format('YYYY-MM-DD')}</Text>
-          </Pressable>
-        </View>
-        {showOccurredDatePicker ? (
-          <DateTimePicker
-            value={occurredDate}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'inline' : 'default'}
-            onChange={(_, selectedDate) => {
-              if (selectedDate) {
-                setOccurredAt(dayjs(selectedDate).toISOString());
-              }
-              if (Platform.OS !== 'ios') {
-                setShowOccurredDatePicker(false);
-              }
-            }}
-          />
-        ) : null}
-
-        <PrimaryButton title={loading ? '처리 중...' : '추가'} onPress={handleAdd} disabled={loading} />
-      </View>
-
       {error ? <ErrorBanner message={error} /> : null}
 
       <View style={styles.listHeader}>
         <Text style={styles.sectionTitle}>거래 목록</Text>
-        <Pressable style={styles.refreshButton} onPress={load}>
-          <Text style={styles.refreshText}>새로고침</Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable
+            style={styles.refreshButton}
+            onPress={() => {
+              resetAddForm();
+              setAddModalVisible(true);
+            }}
+          >
+            <Text style={styles.refreshText}>추가</Text>
+          </Pressable>
+          <Pressable style={styles.refreshButton} onPress={load}>
+            <Text style={styles.refreshText}>새로고침</Text>
+          </Pressable>
+        </View>
       </View>
 
       <FlatList
         data={sortedItems}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.list}
+        keyboardShouldPersistTaps="handled"
         ListEmptyComponent={<EmptyState title="거래 내역이 없습니다." description="첫 거래를 추가해 보세요." />}
         renderItem={({ item }) => (
           <View style={styles.listItem}>
@@ -309,7 +260,7 @@ export function TransactionScreen() {
             ) : (
               <>
                 <View>
-                  <Text style={styles.itemName}>
+                  <Text style={item.type === 'EXPENSE' ? styles.itemNameExpense : styles.itemNameIncome}>
                     {item.type === 'EXPENSE' ? '지출' : '수입'} {item.amount.toLocaleString()}원
                   </Text>
                   <Text style={styles.itemMeta}>
@@ -333,6 +284,90 @@ export function TransactionScreen() {
           </View>
         )}
       />
+
+      <Modal
+        visible={addModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setAddModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <ScrollView contentContainerStyle={styles.modalContentContainer}>
+              <Text style={styles.sectionTitle}>새 거래 추가</Text>
+              <View style={styles.typeRow}>
+                {typeOptions.map((option) => (
+                  <Pressable
+                    key={option.value}
+                    style={[styles.typeChip, type === option.value && styles.typeChipActive]}
+                    onPress={() => setType(option.value)}
+                  >
+                    <Text style={type === option.value ? styles.typeChipTextActive : styles.typeChipText}>
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              <TextField label="금액" value={amount} onChangeText={setAmount} placeholder="예: 12000" />
+              <View style={styles.categorySection}>
+                <Text style={styles.categoryLabel}>카테고리</Text>
+                <View style={styles.categoryRow}>
+                  {sortedCategories.map((category) => (
+                    <Pressable
+                      key={category.id}
+                      style={[
+                        styles.categoryChip,
+                        category.type === 'EXPENSE' ? styles.categoryChipExpense : styles.categoryChipIncome,
+                        selectedCategoryId === category.id && styles.categoryChipActive,
+                      ]}
+                      onPress={() => setSelectedCategoryId(category.id)}
+                    >
+                      <Text
+                        style={
+                          selectedCategoryId === category.id ? styles.categoryChipTextActive : styles.categoryChipText
+                        }
+                      >
+                        {category.name}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                {sortedCategories.length === 0 ? (
+                  <Text style={styles.helperText}>카테고리를 먼저 추가해 주세요.</Text>
+                ) : null}
+              </View>
+              <TextField label="메모" value={memo} onChangeText={setMemo} placeholder="예: 점심" />
+              <View style={styles.dateField}>
+                <Text style={styles.dateFieldLabel}>발생일</Text>
+                <Pressable style={styles.dateButton} onPress={() => setShowOccurredDatePicker(true)}>
+                  <Text style={styles.dateButtonText}>{dayjs(occurredAt).format('YYYY-MM-DD')}</Text>
+                </Pressable>
+              </View>
+              {showOccurredDatePicker ? (
+                <DateTimePicker
+                  value={occurredDate}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                  onChange={(_, selectedDate) => {
+                    if (selectedDate) {
+                      setOccurredAt(dayjs(selectedDate).toISOString());
+                    }
+                    if (Platform.OS !== 'ios') {
+                      setShowOccurredDatePicker(false);
+                    }
+                  }}
+                />
+              ) : null}
+
+              <View style={styles.modalActions}>
+                <PrimaryButton title={loading ? '처리 중...' : '등록'} onPress={handleAdd} disabled={loading} />
+                <PrimaryButton title="취소" onPress={() => setAddModalVisible(false)} />
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       {loading ? <LoadingOverlay /> : null}
     </View>
   );
@@ -343,14 +378,6 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 24,
     backgroundColor: '#f8fafc',
-  },
-  formCard: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
   },
   sectionTitle: {
     fontSize: 16,
@@ -455,6 +482,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
   refreshButton: {
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -480,10 +511,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  itemName: {
+  itemNameIncome: {
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 4,
+    color: '#15803d',
+  },
+  itemNameExpense: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+    color: '#b91c1c',
   },
   itemMeta: {
     fontSize: 12,
@@ -520,5 +558,26 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.35)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 16,
+    maxHeight: '90%',
+  },
+  modalContentContainer: {
+    paddingBottom: 4,
+  },
+  modalActions: {
+    gap: 8,
+    marginTop: 8,
   },
 });

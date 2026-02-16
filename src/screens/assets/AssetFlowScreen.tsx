@@ -58,11 +58,11 @@ export function AssetFlowScreen() {
       (acc, item) => {
         const category = categoryMap.get(item.categoryId);
         const group = classifyExpenseKind(category?.expenseKind);
-        if (group === 'SAVINGS') acc.savings += item.amount;
-        if (group === 'INVEST') acc.invest += item.amount;
+        if (group === 'SAVINGS') acc.savingsTotal += item.amount;
+        if (group === 'INVEST') acc.investTotal += item.amount;
         return acc;
       },
-      { savings: 0, invest: 0 }
+      { savingsTotal: 0, investTotal: 0 }
     );
   }, [monthSpecialItems, categoryMap]);
 

@@ -1,5 +1,5 @@
 ﻿import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -38,52 +38,54 @@ export function SignUpScreen({ navigation }: { navigation: any }) {
       style={styles.container}
       behavior={Platform.select({ ios: 'padding', android: undefined })}
     >
-      <Text style={styles.title}>회원가입</Text>
-      <Controller
-        control={control}
-        name="email"
-        render={({ field: { value, onChange } }) => (
-          <TextField
-            label="이메일"
-            value={value}
-            onChangeText={onChange}
-            placeholder="user@example.com"
-            keyboardType="email-address"
-            errorMessage={errors.email?.message}
-          />
-        )}
-      />
-      <Controller
-        control={control}
-        name="password"
-        render={({ field: { value, onChange } }) => (
-          <TextField
-            label="비밀번호"
-            value={value}
-            onChangeText={onChange}
-            secureTextEntry
-            errorMessage={errors.password?.message}
-          />
-        )}
-      />
-      <Controller
-        control={control}
-        name="nickname"
-        render={({ field: { value, onChange } }) => (
-          <TextField
-            label="닉네임"
-            value={value}
-            onChangeText={onChange}
-            errorMessage={errors.nickname?.message}
-          />
-        )}
-      />
-      <PrimaryButton title={isSubmitting ? '가입 중...' : '가입'} onPress={handleSignUp} disabled={isSubmitting} />
-      <View style={styles.linkRow}>
-        <Text style={styles.link} onPress={() => navigation.goBack()}>
-          로그인으로 돌아가기
-        </Text>
-      </View>
+      <ScrollView contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled">
+        <Text style={styles.title}>회원가입</Text>
+        <Controller
+          control={control}
+          name="email"
+          render={({ field: { value, onChange } }) => (
+            <TextField
+              label="이메일"
+              value={value}
+              onChangeText={onChange}
+              placeholder="user@example.com"
+              keyboardType="email-address"
+              errorMessage={errors.email?.message}
+            />
+          )}
+        />
+        <Controller
+          control={control}
+          name="password"
+          render={({ field: { value, onChange } }) => (
+            <TextField
+              label="비밀번호"
+              value={value}
+              onChangeText={onChange}
+              secureTextEntry
+              errorMessage={errors.password?.message}
+            />
+          )}
+        />
+        <Controller
+          control={control}
+          name="nickname"
+          render={({ field: { value, onChange } }) => (
+            <TextField
+              label="닉네임"
+              value={value}
+              onChangeText={onChange}
+              errorMessage={errors.nickname?.message}
+            />
+          )}
+        />
+        <PrimaryButton title={isSubmitting ? '가입 중...' : '가입'} onPress={handleSignUp} disabled={isSubmitting} />
+        <View style={styles.linkRow}>
+          <Text style={styles.link} onPress={() => navigation.goBack()}>
+            로그인으로 돌아가기
+          </Text>
+        </View>
+      </ScrollView>
       {isSubmitting ? <LoadingOverlay /> : null}
     </KeyboardAvoidingView>
   );
@@ -93,8 +95,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 24,
-    justifyContent: 'center',
     backgroundColor: '#f8fafc',
+  },
+  contentContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   title: {
     fontSize: 24,

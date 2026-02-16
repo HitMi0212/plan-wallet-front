@@ -1,5 +1,5 @@
 ﻿import React, { useEffect } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -51,41 +51,43 @@ export function LoginScreen({ navigation }: { navigation: any }) {
       style={styles.container}
       behavior={Platform.select({ ios: 'padding', android: undefined })}
     >
-      <Text style={styles.title}>plan-wallet</Text>
-      <Controller
-        control={control}
-        name="email"
-        render={({ field: { value, onChange } }) => (
-          <TextField
-            label="이메일"
-            value={value}
-            onChangeText={onChange}
-            placeholder="user@example.com"
-            keyboardType="email-address"
-            errorMessage={errors.email?.message}
-          />
-        )}
-      />
-      <Controller
-        control={control}
-        name="password"
-        render={({ field: { value, onChange } }) => (
-          <TextField
-            label="비밀번호"
-            value={value}
-            onChangeText={onChange}
-            placeholder="비밀번호"
-            secureTextEntry
-            errorMessage={errors.password?.message}
-          />
-        )}
-      />
-      <PrimaryButton title={isSubmitting ? '로그인 중...' : '로그인'} onPress={handleLogin} disabled={isSubmitting} />
-      <View style={styles.linkRow}>
-        <Text style={styles.link} onPress={() => navigation.navigate('SignUp')}>
-          회원가입
-        </Text>
-      </View>
+      <ScrollView contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled">
+        <Text style={styles.title}>plan-wallet</Text>
+        <Controller
+          control={control}
+          name="email"
+          render={({ field: { value, onChange } }) => (
+            <TextField
+              label="이메일"
+              value={value}
+              onChangeText={onChange}
+              placeholder="user@example.com"
+              keyboardType="email-address"
+              errorMessage={errors.email?.message}
+            />
+          )}
+        />
+        <Controller
+          control={control}
+          name="password"
+          render={({ field: { value, onChange } }) => (
+            <TextField
+              label="비밀번호"
+              value={value}
+              onChangeText={onChange}
+              placeholder="비밀번호"
+              secureTextEntry
+              errorMessage={errors.password?.message}
+            />
+          )}
+        />
+        <PrimaryButton title={isSubmitting ? '로그인 중...' : '로그인'} onPress={handleLogin} disabled={isSubmitting} />
+        <View style={styles.linkRow}>
+          <Text style={styles.link} onPress={() => navigation.navigate('SignUp')}>
+            회원가입
+          </Text>
+        </View>
+      </ScrollView>
       {isSubmitting ? <LoadingOverlay /> : null}
     </KeyboardAvoidingView>
   );
@@ -95,8 +97,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 24,
-    justifyContent: 'center',
     backgroundColor: '#f8fafc',
+  },
+  contentContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   title: {
     fontSize: 28,

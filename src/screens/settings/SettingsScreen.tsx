@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { TextField } from '../../components/TextField';
@@ -72,7 +72,7 @@ export function SettingsScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>로그인</Text>
         <Text style={styles.statusText}>{isAuthenticated ? '현재 상태: 로그인됨' : '현재 상태: 비로그인(게스트)'}</Text>
@@ -106,15 +106,18 @@ export function SettingsScreen() {
         <PrimaryButton title="데이터 백업 파일 만들기" onPress={handleExport} />
         <PrimaryButton title="백업 파일 가져오기" onPress={handleImport} />
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
     backgroundColor: '#f8fafc',
+  },
+  contentContainer: {
+    padding: 24,
+    paddingBottom: 40,
   },
   card: {
     backgroundColor: '#fff',

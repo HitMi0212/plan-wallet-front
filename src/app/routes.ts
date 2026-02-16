@@ -10,4 +10,5 @@ export type MainTabParamList = {
   Stats: undefined;
   Settings: undefined;
   AssetFlows: undefined;
+  TotalWealth: undefined;
 };

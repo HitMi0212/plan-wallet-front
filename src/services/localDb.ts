@@ -255,3 +255,170 @@ export async function deleteLocalTransaction(userId: number, id: number): Promis
   const nextTransactions = transactions.filter((item) => !(item.userId === userId && item.id === id));
   await writeList(TRANSACTIONS_KEY, nextTransactions);
 }
+
+export async function seedDemoDataIfEmpty(userId: number): Promise<void> {
+  const categories = await readList<LocalCategory>(CATEGORIES_KEY);
+  const transactions = await readList<LocalTransaction>(TRANSACTIONS_KEY);
+
+  const userCategories = categories.filter((item) => item.userId === userId);
+  const userTransactions = transactions.filter((item) => item.userId === userId);
+
+  if (userCategories.length > 0 || userTransactions.length > 0) {
+    return;
+  }
+
+  const now = new Date();
+  const timestamp = now.toISOString();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
+  let nextCategoryId = nextId(categories);
+  const createDemoCategory = (
+    type: Category['type'],
+    name: string,
+    expenseKind: Category['expenseKind']
+  ): LocalCategory => {
+    const category: LocalCategory = {
+      id: nextCategoryId++,
+      userId,
+      type,
+      expenseKind,
+      name,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    return category;
+  };
+
+  const demoCategories: LocalCategory[] = [
+    createDemoCategory('INCOME', '월급', 'NORMAL'),
+    createDemoCategory('EXPENSE', '식비', 'NORMAL'),
+    createDemoCategory('EXPENSE', '교통', 'NORMAL'),
+    createDemoCategory('EXPENSE', '적금', 'SAVINGS'),
+    createDemoCategory('EXPENSE', '국내주식', 'INVEST'),
+  ];
+
+  const incomeCategoryId = demoCategories[0].id;
+  const foodCategoryId = demoCategories[1].id;
+  const trafficCategoryId = demoCategories[2].id;
+  const savingsCategoryId = demoCategories[3].id;
+  const investCategoryId = demoCategories[4].id;
+
+  const sampleDates = {
+    thisMonthPayday: new Date(currentYear, currentMonth, 1, 9, 0, 0).toISOString(),
+    thisMonthFood: new Date(currentYear, currentMonth, 5, 12, 30, 0).toISOString(),
+    thisMonthSavings: new Date(currentYear, currentMonth, 10, 10, 0, 0).toISOString(),
+    thisMonthInvest: new Date(currentYear, currentMonth, 12, 11, 0, 0).toISOString(),
+    thisMonthTraffic: new Date(currentYear, currentMonth, 15, 8, 30, 0).toISOString(),
+    prevMonthPayday: new Date(currentYear, currentMonth - 1, 1, 9, 0, 0).toISOString(),
+    prevMonthFood: new Date(currentYear, currentMonth - 1, 6, 12, 0, 0).toISOString(),
+    prevMonthSavings: new Date(currentYear, currentMonth - 1, 10, 10, 0, 0).toISOString(),
+    prevMonthInvest: new Date(currentYear, currentMonth - 1, 12, 11, 0, 0).toISOString(),
+  };
+
+  const nextTxnIdBase = nextId(transactions);
+  const demoTransactions: LocalTransaction[] = [
+    {
+      id: nextTxnIdBase,
+      userId,
+      type: 'INCOME',
+      amount: 3200000,
+      categoryId: incomeCategoryId,
+      memo: '월급',
+      occurredAt: sampleDates.thisMonthPayday,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: nextTxnIdBase + 1,
+      userId,
+      type: 'EXPENSE',
+      amount: 18000,
+      categoryId: foodCategoryId,
+      memo: '점심',
+      occurredAt: sampleDates.thisMonthFood,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: nextTxnIdBase + 2,
+      userId,
+      type: 'EXPENSE',
+      amount: 500000,
+      categoryId: savingsCategoryId,
+      memo: '자동이체',
+      occurredAt: sampleDates.thisMonthSavings,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: nextTxnIdBase + 3,
+      userId,
+      type: 'EXPENSE',
+      amount: 300000,
+      categoryId: investCategoryId,
+      memo: 'ETF 매수',
+      occurredAt: sampleDates.thisMonthInvest,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: nextTxnIdBase + 4,
+      userId,
+      type: 'EXPENSE',
+      amount: 2800,
+      categoryId: trafficCategoryId,
+      memo: '지하철',
+      occurredAt: sampleDates.thisMonthTraffic,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: nextTxnIdBase + 5,
+      userId,
+      type: 'INCOME',
+      amount: 3200000,
+      categoryId: incomeCategoryId,
+      memo: '월급',
+      occurredAt: sampleDates.prevMonthPayday,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: nextTxnIdBase + 6,
+      userId,
+      type: 'EXPENSE',
+      amount: 22000,
+      categoryId: foodCategoryId,
+      memo: '저녁',
+      occurredAt: sampleDates.prevMonthFood,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: nextTxnIdBase + 7,
+      userId,
+      type: 'EXPENSE',
+      amount: 500000,
+      categoryId: savingsCategoryId,
+      memo: '적금',
+      occurredAt: sampleDates.prevMonthSavings,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: nextTxnIdBase + 8,
+      userId,
+      type: 'EXPENSE',
+      amount: 250000,
+      categoryId: investCategoryId,
+      memo: '국내주식 매수',
+      occurredAt: sampleDates.prevMonthInvest,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+  ];
+
+  await writeList(CATEGORIES_KEY, [...categories, ...demoCategories]);
+  await writeList(TRANSACTIONS_KEY, [...transactions, ...demoTransactions]);
+}
