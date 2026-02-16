@@ -1,24 +1,12 @@
 ﻿import { act } from '@testing-library/react-native';
 
 import { useAuthStore } from '../stores/authStore';
+import * as localDb from '../services/localDb';
 import * as tokenService from '../services/token';
-
-jest.mock('../services/api', () => ({
-  getApiClient: () => ({
-    post: jest.fn((url: string) => {
-      if (url === '/auth/login') {
-        return Promise.resolve({ data: { accessToken: 'a', refreshToken: 'r' } });
-      }
-      if (url === '/users') {
-        return Promise.resolve({ data: {} });
-      }
-      return Promise.resolve({ data: {} });
-    }),
-  }),
-}));
 
 describe('authStore', () => {
   beforeEach(() => {
+    jest.restoreAllMocks();
     useAuthStore.setState({
       accessToken: null,
       refreshToken: null,
@@ -43,6 +31,7 @@ describe('authStore', () => {
 
   it('logs in and stores tokens', async () => {
     const saveSpy = jest.spyOn(tokenService, 'saveTokens').mockResolvedValue();
+    jest.spyOn(localDb, 'loginLocalUser').mockResolvedValue({ accessToken: 'a', refreshToken: 'r' });
 
     await act(async () => {
       await useAuthStore.getState().login('user@example.com', 'password');
@@ -55,6 +44,8 @@ describe('authStore', () => {
 
   it('signs up then logs in', async () => {
     const saveSpy = jest.spyOn(tokenService, 'saveTokens').mockResolvedValue();
+    jest.spyOn(localDb, 'signUpLocalUser').mockResolvedValue();
+    jest.spyOn(localDb, 'loginLocalUser').mockResolvedValue({ accessToken: 'a', refreshToken: 'r' });
 
     await act(async () => {
       await useAuthStore.getState().signUp('user@example.com', 'password', 'nick');

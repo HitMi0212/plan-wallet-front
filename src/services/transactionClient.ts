@@ -1,30 +1,35 @@
-﻿import { getApiClient } from './api';
 import {
   Transaction,
   TransactionCreateRequest,
   TransactionUpdateRequest,
 } from './transactionApi';
-
-const client = () => getApiClient();
+import {
+  createLocalTransaction,
+  deleteLocalTransaction,
+  getLocalTransactions,
+  requireAuthenticatedUserId,
+  updateLocalTransaction,
+} from './localDb';
 
 export async function fetchTransactions(): Promise<Transaction[]> {
-  const response = await client().get('/transactions');
-  return response.data as Transaction[];
+  const userId = await requireAuthenticatedUserId();
+  return getLocalTransactions(userId);
 }
 
 export async function createTransaction(payload: TransactionCreateRequest): Promise<Transaction> {
-  const response = await client().post('/transactions', payload);
-  return response.data as Transaction;
+  const userId = await requireAuthenticatedUserId();
+  return createLocalTransaction(userId, payload);
 }
 
 export async function updateTransaction(
   id: number,
   payload: TransactionUpdateRequest
 ): Promise<Transaction> {
-  const response = await client().patch(`/transactions/${id}`, payload);
-  return response.data as Transaction;
+  const userId = await requireAuthenticatedUserId();
+  return updateLocalTransaction(userId, id, payload);
 }
 
 export async function deleteTransaction(id: number): Promise<void> {
-  await client().delete(`/transactions/${id}`);
+  const userId = await requireAuthenticatedUserId();
+  await deleteLocalTransaction(userId, id);
 }

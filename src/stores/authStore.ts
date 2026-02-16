@@ -1,6 +1,6 @@
-﻿import { create } from 'zustand';
+import { create } from 'zustand';
 
-import { getApiClient } from '../services/api';
+import { loginLocalUser, signUpLocalUser } from '../services/localDb';
 import { clearTokens, loadTokens, saveTokens } from '../services/token';
 
 interface AuthState {
@@ -31,19 +31,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   login: async (email, password) => {
-    const api = getApiClient();
-    const response = await api.post('/auth/login', { email, password });
-    const { accessToken, refreshToken } = response.data as {
-      accessToken: string;
-      refreshToken: string;
-    };
+    const { accessToken, refreshToken } = await loginLocalUser(email, password);
     await saveTokens(accessToken, refreshToken);
     set({ accessToken, refreshToken, isAuthenticated: true });
   },
 
   signUp: async (email, password, nickname) => {
-    const api = getApiClient();
-    await api.post('/users', { email, password, nickname });
+    await signUpLocalUser(email, password, nickname);
     await get().login(email, password);
   },
 

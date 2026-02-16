@@ -1,7 +1,7 @@
-﻿import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const ACCESS_KEY = 'plan-wallet.accessToken';
-const REFRESH_KEY = 'plan-wallet.refreshToken';
+export const ACCESS_KEY = 'plan-wallet.accessToken';
+export const REFRESH_KEY = 'plan-wallet.refreshToken';
 
 export async function saveTokens(accessToken: string, refreshToken: string) {
   await AsyncStorage.multiSet([

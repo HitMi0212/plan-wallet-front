@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { render } from '@testing-library/react-native';
 
 import { AppNavigator } from '../app/AppNavigator';
@@ -31,6 +31,10 @@ jest.mock('../screens/transaction/TransactionScreen', () => ({
 
 jest.mock('../screens/stats/StatsScreen', () => ({
   StatsScreen: () => <></>,
+}));
+
+jest.mock('../screens/settings/SettingsScreen', () => ({
+  SettingsScreen: () => <></>,
 }));
 
 describe('AppNavigator', () => {

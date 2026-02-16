@@ -1,23 +1,28 @@
-﻿import { getApiClient } from './api';
 import { Category, CategoryCreateRequest, CategoryUpdateRequest } from './categoryApi';
-
-const client = () => getApiClient();
+import {
+  createLocalCategory,
+  deleteLocalCategory,
+  getLocalCategories,
+  requireAuthenticatedUserId,
+  updateLocalCategory,
+} from './localDb';
 
 export async function fetchCategories(): Promise<Category[]> {
-  const response = await client().get('/categories');
-  return response.data as Category[];
+  const userId = await requireAuthenticatedUserId();
+  return getLocalCategories(userId);
 }
 
 export async function createCategory(payload: CategoryCreateRequest): Promise<Category> {
-  const response = await client().post('/categories', payload);
-  return response.data as Category;
+  const userId = await requireAuthenticatedUserId();
+  return createLocalCategory(userId, payload);
 }
 
 export async function updateCategory(id: number, payload: CategoryUpdateRequest): Promise<Category> {
-  const response = await client().patch(`/categories/${id}`, payload);
-  return response.data as Category;
+  const userId = await requireAuthenticatedUserId();
+  return updateLocalCategory(userId, id, payload);
 }
 
 export async function deleteCategory(id: number): Promise<void> {
-  await client().delete(`/categories/${id}`);
+  const userId = await requireAuthenticatedUserId();
+  await deleteLocalCategory(userId, id);
 }

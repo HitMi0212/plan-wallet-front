@@ -1,4 +1,4 @@
-﻿export type AuthStackParamList = {
+export type AuthStackParamList = {
   Login: undefined;
   SignUp: undefined;
 };
@@ -8,4 +8,5 @@ export type MainTabParamList = {
   Categories: undefined;
   Transactions: undefined;
   Stats: undefined;
+  Settings: undefined;
 };

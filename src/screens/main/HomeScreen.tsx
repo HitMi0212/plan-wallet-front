@@ -1,13 +1,11 @@
-﻿import dayjs from 'dayjs';
+import dayjs from 'dayjs';
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
-import { useAuthStore } from '../../stores/authStore';
 import { useSummaryStore } from '../../stores/summaryStore';
 
 export function HomeScreen({ navigation }: { navigation: any }) {
-  const logout = useAuthStore((state) => state.logout);
   const { monthly, loading, load, error } = useSummaryStore();
 
   const reloadSummary = () => {
@@ -44,8 +42,8 @@ export function HomeScreen({ navigation }: { navigation: any }) {
         <PrimaryButton title="카테고리" onPress={() => navigation.navigate('Categories')} />
         <PrimaryButton title="거래" onPress={() => navigation.navigate('Transactions')} />
         <PrimaryButton title="통계" onPress={() => navigation.navigate('Stats')} />
+        <PrimaryButton title="설정" onPress={() => navigation.navigate('Settings')} />
       </View>
-      <PrimaryButton title="로그아웃" onPress={logout} />
     </View>
   );
 }

@@ -1,4 +1,4 @@
-﻿import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React, { useEffect } from 'react';
@@ -8,6 +8,7 @@ import { SignUpScreen } from '../screens/auth/SignUpScreen';
 import { CategoryScreen } from '../screens/category/CategoryScreen';
 import { BootScreen } from '../screens/common/BootScreen';
 import { HomeScreen } from '../screens/main/HomeScreen';
+import { SettingsScreen } from '../screens/settings/SettingsScreen';
 import { StatsScreen } from '../screens/stats/StatsScreen';
 import { TransactionScreen } from '../screens/transaction/TransactionScreen';
 import { useAuthStore } from '../stores/authStore';
@@ -32,6 +33,7 @@ function MainTabNavigator() {
       <MainTabs.Screen name="Transactions" component={TransactionScreen} options={{ title: '거래' }} />
       <MainTabs.Screen name="Categories" component={CategoryScreen} options={{ title: '카테고리' }} />
       <MainTabs.Screen name="Stats" component={StatsScreen} options={{ title: '통계' }} />
+      <MainTabs.Screen name="Settings" component={SettingsScreen} options={{ title: '설정' }} />
     </MainTabs.Navigator>
   );
 }
@@ -49,9 +51,5 @@ export function AppNavigator() {
     return <BootScreen />;
   }
 
-  return (
-    <NavigationContainer>
-      {isAuthenticated ? <MainTabNavigator /> : <AuthNavigator />}
-    </NavigationContainer>
-  );
+  return <NavigationContainer>{isAuthenticated ? <MainTabNavigator /> : <AuthNavigator />}</NavigationContainer>;
 }
