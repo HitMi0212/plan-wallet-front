@@ -299,7 +299,7 @@ export function TransactionScreen() {
             }
             const isSelected = date.format('YYYY-MM-DD') === selectedDate.format('YYYY-MM-DD');
             const isToday = date.format('YYYY-MM-DD') === dayjs().format('YYYY-MM-DD');
-            const isHoliday = date.day() === 0 || date.day() === 6;
+            const isHoliday = date.day() === 0;
             const indicator = dayIndicators.get(date.format('YYYY-MM-DD'));
             return (
               <Pressable
@@ -430,7 +430,7 @@ export function TransactionScreen() {
                 label="비고"
                 value={memo}
                 onChangeText={setMemo}
-                placeholder="예: 점심\n영수증 참고"
+                placeholder="예: 점심"
                 multiline
                 numberOfLines={3}
               />
@@ -505,7 +505,7 @@ export function TransactionScreen() {
                   label="비고"
                   value={detailMemo}
                   onChangeText={setDetailMemo}
-                  placeholder="예: 점심\n영수증 참고"
+                  placeholder="예: 점심"
                   multiline
                   numberOfLines={3}
                 />

@@ -461,7 +461,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
                 label="메모"
                 value={memo}
                 onChangeText={setMemo}
-                placeholder="예: 점심\n영수증 참고"
+                placeholder="예: 점심"
                 multiline
                 numberOfLines={3}
               />
