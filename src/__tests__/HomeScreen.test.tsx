@@ -17,7 +17,7 @@ describe('HomeScreen', () => {
     const { getByText } = render(
       <HomeScreen navigation={{ navigate: jest.fn(), setOptions: jest.fn() }} />
     );
-    expect(getByText('금일 등록 내역')).toBeTruthy();
+    expect(getByText('금일 소비')).toBeTruthy();
     expect(getByText('등록')).toBeTruthy();
   });
 });

@@ -1,11 +1,25 @@
 import dayjs from 'dayjs';
 import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import {
+  Alert,
+  FlatList,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { ExpenseCategoryKind } from '../../services/categoryApi';
 import { requireAuthenticatedUserId, seedDemoDataIfEmpty } from '../../services/localDb';
+import { TransactionType } from '../../services/transactionApi';
 import { useCategoryStore } from '../../stores/categoryStore';
 import { useTransactionStore } from '../../stores/transactionStore';
+import { PrimaryButton } from '../../components/PrimaryButton';
+import { TextField } from '../../components/TextField';
 
 function classifyExpenseKind(kind?: ExpenseCategoryKind): 'SAVINGS' | 'INVEST' | 'OTHER' {
   if (kind === 'SAVINGS') return 'SAVINGS';
@@ -14,11 +28,18 @@ function classifyExpenseKind(kind?: ExpenseCategoryKind): 'SAVINGS' | 'INVEST' |
 }
 
 export function HomeScreen({ navigation }: { navigation: any }) {
-  const { items, loading, error, load } = useTransactionStore();
+  const { items, loading, error, load, add } = useTransactionStore();
   const categories = useCategoryStore((state) => state.items);
   const loadCategories = useCategoryStore((state) => state.load);
   const [selectedMonth, setSelectedMonth] = useState(dayjs().startOf('month'));
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
+  const [addModalVisible, setAddModalVisible] = useState(false);
+  const [type, setType] = useState<TransactionType>('EXPENSE');
+  const [amount, setAmount] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [memo, setMemo] = useState('');
+  const [occurredAt, setOccurredAt] = useState(dayjs().toISOString());
+  const [showOccurredDatePicker, setShowOccurredDatePicker] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -91,6 +112,15 @@ export function HomeScreen({ navigation }: { navigation: any }) {
   }, [items]);
 
   const monthLabel = `${selectedMonth.year()}년 ${selectedMonth.month() + 1}월`;
+  const sortedCategories = useMemo(
+    () => [...categories].sort((a, b) => a.name.localeCompare(b.name)),
+    [categories]
+  );
+  const addCategories = useMemo(
+    () => sortedCategories.filter((category) => category.type === type),
+    [sortedCategories, type]
+  );
+  const occurredDate = dayjs(occurredAt).isValid() ? dayjs(occurredAt).toDate() : new Date();
 
   const monthOptions = useMemo(() => {
     const keySet = new Set<string>([
@@ -106,6 +136,48 @@ export function HomeScreen({ navigation }: { navigation: any }) {
       .map((key) => dayjs(`${key}-01`))
       .sort((a, b) => b.valueOf() - a.valueOf());
   }, [items, selectedMonth]);
+
+  useEffect(() => {
+    if (selectedCategoryId === null) return;
+    const selected = categories.find((category) => category.id === selectedCategoryId);
+    if (!selected || selected.type !== type) {
+      setSelectedCategoryId(null);
+    }
+  }, [type, selectedCategoryId, categories]);
+
+  const resetAddForm = () => {
+    setType('EXPENSE');
+    setAmount('');
+    setSelectedCategoryId(null);
+    setMemo('');
+    setOccurredAt(dayjs().toISOString());
+    setShowOccurredDatePicker(false);
+  };
+
+  const handleAdd = async () => {
+    const parsedAmount = Number(amount);
+    const parsedCategory = selectedCategoryId ?? 0;
+
+    if (!parsedAmount || parsedAmount <= 0) {
+      Alert.alert('입력 오류', '금액을 올바르게 입력해 주세요.');
+      return;
+    }
+    if (!parsedCategory || parsedCategory <= 0) {
+      Alert.alert('입력 오류', '카테고리를 선택해 주세요.');
+      return;
+    }
+
+    await add({
+      type,
+      amount: parsedAmount,
+      categoryId: parsedCategory,
+      memo: memo.trim() || null,
+      occurredAt,
+    });
+
+    setAddModalVisible(false);
+    resetAddForm();
+  };
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -146,7 +218,18 @@ export function HomeScreen({ navigation }: { navigation: any }) {
       </View>
 
       <View style={styles.monthListCard}>
-        <Text style={styles.monthListTitle}>금일 등록 내역</Text>
+        <View style={styles.monthListHeader}>
+          <Text style={styles.monthListTitle}>금일 소비</Text>
+          <Pressable
+            style={styles.inlineAddButton}
+            onPress={() => {
+              resetAddForm();
+              setAddModalVisible(true);
+            }}
+          >
+            <Text style={styles.inlineAddText}>등록</Text>
+          </Pressable>
+        </View>
         {todayItems.length === 0 ? (
           <Text style={styles.helperText}>오늘 등록된 내역이 없습니다.</Text>
         ) : (
@@ -170,10 +253,6 @@ export function HomeScreen({ navigation }: { navigation: any }) {
       </View>
 
       {loading ? <Text style={styles.helperText}>집계 중...</Text> : null}
-
-      <Pressable style={styles.quickAddButton} onPress={() => navigation.navigate('Transactions')}>
-        <Text style={styles.quickAddText}>등록</Text>
-      </Pressable>
 
       <Modal visible={monthPickerOpen} transparent animationType="fade" onRequestClose={() => setMonthPickerOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setMonthPickerOpen(false)}>
@@ -201,6 +280,89 @@ export function HomeScreen({ navigation }: { navigation: any }) {
             />
           </View>
         </Pressable>
+      </Modal>
+
+      <Modal
+        visible={addModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setAddModalVisible(false)}
+      >
+        <View style={styles.addModalBackdrop}>
+          <View style={styles.addModalCard}>
+            <ScrollView contentContainerStyle={styles.addModalContentContainer}>
+              <Text style={styles.modalTitle}>거래 등록</Text>
+              <View style={styles.typeRow}>
+                <Pressable
+                  style={[styles.typeChip, type === 'EXPENSE' && styles.typeChipActive]}
+                  onPress={() => setType('EXPENSE')}
+                >
+                  <Text style={type === 'EXPENSE' ? styles.typeChipTextActive : styles.typeChipText}>지출</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.typeChip, type === 'INCOME' && styles.typeChipActive]}
+                  onPress={() => setType('INCOME')}
+                >
+                  <Text style={type === 'INCOME' ? styles.typeChipTextActive : styles.typeChipText}>수입</Text>
+                </Pressable>
+              </View>
+              <TextField label="금액" value={amount} onChangeText={setAmount} placeholder="예: 12000" />
+              <View style={styles.categorySection}>
+                <Text style={styles.categoryLabel}>카테고리</Text>
+                <View style={styles.categoryRow}>
+                  {addCategories.map((category) => (
+                    <Pressable
+                      key={category.id}
+                      style={[
+                        styles.categoryChip,
+                        category.type === 'EXPENSE' ? styles.categoryChipExpense : styles.categoryChipIncome,
+                        selectedCategoryId === category.id && styles.categoryChipActive,
+                      ]}
+                      onPress={() => setSelectedCategoryId(category.id)}
+                    >
+                      <Text
+                        style={
+                          selectedCategoryId === category.id ? styles.categoryChipTextActive : styles.categoryChipText
+                        }
+                      >
+                        {category.name}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                {addCategories.length === 0 ? (
+                  <Text style={styles.helperText}>{type === 'EXPENSE' ? '지출' : '수입'} 카테고리를 먼저 추가해 주세요.</Text>
+                ) : null}
+              </View>
+              <TextField label="메모" value={memo} onChangeText={setMemo} placeholder="예: 점심" />
+              <View style={styles.dateField}>
+                <Text style={styles.dateFieldLabel}>발생일</Text>
+                <Pressable style={styles.dateButton} onPress={() => setShowOccurredDatePicker(true)}>
+                  <Text style={styles.dateButtonText}>{dayjs(occurredAt).format('YYYY-MM-DD')}</Text>
+                </Pressable>
+              </View>
+              {showOccurredDatePicker ? (
+                <DateTimePicker
+                  value={occurredDate}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                  onChange={(_, selectedDate) => {
+                    if (selectedDate) {
+                      setOccurredAt(dayjs(selectedDate).toISOString());
+                    }
+                    if (Platform.OS !== 'ios') {
+                      setShowOccurredDatePicker(false);
+                    }
+                  }}
+                />
+              ) : null}
+              <View style={styles.modalActions}>
+                <PrimaryButton title={loading ? '처리 중...' : '등록'} onPress={handleAdd} disabled={loading} />
+                <PrimaryButton title="취소" onPress={() => setAddModalVisible(false)} />
+              </View>
+            </ScrollView>
+          </View>
+        </View>
       </Modal>
     </ScrollView>
   );
@@ -320,6 +482,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#334155',
     fontWeight: '700',
+  },
+  monthListHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 8,
   },
   monthItemRow: {
@@ -347,19 +514,16 @@ const styles = StyleSheet.create({
     color: '#b91c1c',
     fontWeight: '800',
   },
-  quickAddButton: {
-    alignSelf: 'flex-end',
+  inlineAddButton: {
     backgroundColor: '#0f172a',
     borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginTop: 2,
-    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
-  quickAddText: {
+  inlineAddText: {
     color: '#fff',
     fontWeight: '700',
-    fontSize: 13,
+    fontSize: 12,
   },
   modalBackdrop: {
     flex: 1,
@@ -397,5 +561,113 @@ const styles = StyleSheet.create({
   monthOptionTextSelected: {
     color: '#fff',
     fontWeight: '700',
+  },
+  addModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.35)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  addModalCard: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 16,
+    maxHeight: '90%',
+  },
+  addModalContentContainer: {
+    paddingBottom: 4,
+  },
+  typeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+    flexWrap: 'wrap',
+  },
+  typeChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#cbd5f5',
+  },
+  typeChipActive: {
+    backgroundColor: '#0f172a',
+    borderColor: '#0f172a',
+  },
+  typeChipText: {
+    color: '#0f172a',
+  },
+  typeChipTextActive: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  categorySection: {
+    marginBottom: 12,
+  },
+  categoryLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 8,
+    color: '#0f172a',
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  categoryChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#cbd5f5',
+  },
+  categoryChipExpense: {
+    backgroundColor: '#fff1f2',
+    borderColor: '#fecdd3',
+  },
+  categoryChipIncome: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#bbf7d0',
+  },
+  categoryChipActive: {
+    backgroundColor: '#0f172a',
+    borderColor: '#0f172a',
+  },
+  categoryChipText: {
+    color: '#0f172a',
+    fontWeight: '600',
+  },
+  categoryChipTextActive: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  dateField: {
+    marginBottom: 12,
+  },
+  dateFieldLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 8,
+    color: '#0f172a',
+  },
+  dateButton: {
+    borderWidth: 1,
+    borderColor: '#cbd5f5',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+  },
+  dateButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#0f172a',
+  },
+  modalActions: {
+    gap: 8,
+    marginTop: 8,
   },
 });
