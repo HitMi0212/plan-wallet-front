@@ -137,6 +137,28 @@ export function HomeScreen({ navigation }: { navigation: any }) {
     () => sortedCategories.filter((category) => category.type === type),
     [sortedCategories, type]
   );
+  const monthCategoryTotals = useMemo(() => {
+    const totals = new Map<
+      number,
+      { categoryName: string; type: TransactionType; total: number }
+    >();
+
+    monthItems.forEach((item) => {
+      const prev = totals.get(item.categoryId);
+      const categoryName = categoryMap.get(item.categoryId)?.name ?? `카테고리 ${item.categoryId}`;
+      if (prev) {
+        prev.total += item.amount;
+      } else {
+        totals.set(item.categoryId, {
+          categoryName,
+          type: item.type,
+          total: item.amount,
+        });
+      }
+    });
+
+    return [...totals.values()].sort((a, b) => b.total - a.total);
+  }, [monthItems, categoryMap]);
   const occurredDate = dayjs(occurredAt).isValid() ? dayjs(occurredAt).toDate() : new Date();
 
   const monthOptions = useMemo(() => {
@@ -209,7 +231,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
     navigation.setOptions({
       headerTitle: () => (
         <Pressable onPress={() => setMonthPickerOpen(true)} style={styles.headerMonthButton}>
-          <Text style={styles.headerMonthText}>{monthLabel}</Text>
+          <Text style={styles.headerMonthText}>{monthLabel} ▼</Text>
         </Pressable>
       ),
       headerTitleAlign: 'center',
@@ -282,7 +304,26 @@ export function HomeScreen({ navigation }: { navigation: any }) {
             </ScrollView>
           )}
         </View>
-      ) : null}
+      ) : (
+        <View style={styles.monthListCard}>
+          <Text style={styles.monthListTitle}>{monthLabel} 카테고리별 합계</Text>
+          {monthCategoryTotals.length === 0 ? (
+            <Text style={styles.helperText}>선택한 달의 내역이 없습니다.</Text>
+          ) : (
+            <View style={styles.categoryTotalWrap}>
+              {monthCategoryTotals.map((item, index) => (
+                <View key={`${item.categoryName}-${index}`} style={styles.categoryTotalRow}>
+                  <Text style={styles.categoryTotalName}>{item.categoryName}</Text>
+                  <Text style={item.type === 'INCOME' ? styles.categoryTotalIncome : styles.categoryTotalExpense}>
+                    {item.type === 'INCOME' ? '+' : '-'}
+                    {item.total.toLocaleString()}원
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
 
       {loading ? <Text style={styles.helperText}>집계 중...</Text> : null}
 
@@ -543,6 +584,31 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   monthItemExpense: {
+    color: '#b91c1c',
+    fontWeight: '800',
+  },
+  categoryTotalWrap: {
+    marginTop: 8,
+    gap: 6,
+  },
+  categoryTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  categoryTotalName: {
+    color: '#0f172a',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  categoryTotalIncome: {
+    color: '#15803d',
+    fontWeight: '800',
+  },
+  categoryTotalExpense: {
     color: '#b91c1c',
     fontWeight: '800',
   },
