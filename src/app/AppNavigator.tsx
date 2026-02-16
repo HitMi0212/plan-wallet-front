@@ -19,12 +19,20 @@ const MainTabs = createBottomTabNavigator<MainTabParamList>();
 
 function MainTabNavigator() {
   const monthTitle = `${dayjs().year()}년 ${dayjs().month() + 1}월`;
+  const tabTitleMap: Record<Exclude<keyof MainTabParamList, 'Home'>, string> = {
+    Transactions: '거래',
+    AssetFlows: '예적금/투자',
+    TotalWealth: '총재산',
+    Stats: '통계',
+    Categories: '카테고리',
+    Settings: '설정',
+  };
 
   return (
     <MainTabs.Navigator
       initialRouteName="Home"
       screenOptions={({ route }) => ({
-        headerTitle: monthTitle,
+        headerTitle: route.name === 'Home' ? monthTitle : tabTitleMap[route.name as Exclude<keyof MainTabParamList, 'Home'>],
         headerTitleAlign: 'center',
         tabBarIcon: ({ color, size, focused }) => {
           const iconMap: Record<

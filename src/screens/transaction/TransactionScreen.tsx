@@ -111,6 +111,11 @@ export function TransactionScreen() {
       setSelectedDate(next.startOf('day'));
     }
   };
+  const moveToCurrentMonth = () => {
+    const today = dayjs().startOf('day');
+    setCalendarMonth(today.startOf('month'));
+    setSelectedDate(today);
+  };
 
   const calendarDays = useMemo(() => {
     const start = calendarMonth.startOf('month');
@@ -261,7 +266,9 @@ export function TransactionScreen() {
           <Pressable style={styles.calendarNavButton} onPress={() => moveCalendarMonth(-1)}>
             <Text style={styles.calendarNavText}>이전</Text>
           </Pressable>
-          <Text style={styles.calendarMonthText}>{calendarMonth.format('YYYY년 M월')}</Text>
+          <Pressable onPress={moveToCurrentMonth}>
+            <Text style={styles.calendarMonthText}>{calendarMonth.format('YYYY년 M월')}</Text>
+          </Pressable>
           <Pressable style={styles.calendarNavButton} onPress={() => moveCalendarMonth(1)}>
             <Text style={styles.calendarNavText}>다음</Text>
           </Pressable>

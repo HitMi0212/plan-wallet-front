@@ -39,6 +39,11 @@ export function StatsScreen() {
       return nextMonth;
     });
   };
+  const moveToCurrentMonth = () => {
+    const today = dayjs();
+    setYear(today.year());
+    setMonth(today.month() + 1);
+  };
 
   useEffect(() => {
     load(year, month);
@@ -138,7 +143,9 @@ export function StatsScreen() {
         <Pressable style={styles.controlButton} onPress={() => moveMonth(-1)}>
           <Text style={styles.controlText}>이전</Text>
         </Pressable>
-        <Text style={styles.controlLabel}>{year}년 {month}월</Text>
+        <Pressable onPress={moveToCurrentMonth}>
+          <Text style={styles.controlLabel}>{year}년 {month}월</Text>
+        </Pressable>
         <Pressable style={styles.controlButton} onPress={() => moveMonth(1)}>
           <Text style={styles.controlText}>다음</Text>
         </Pressable>
