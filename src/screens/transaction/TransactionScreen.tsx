@@ -532,7 +532,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#fff',
+    backgroundColor: 'transparent',
   },
   dateButtonText: {
     fontSize: 15,
@@ -552,15 +552,15 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5f5',
   },
   categoryChipExpense: {
-    backgroundColor: '#fff1f2',
+    backgroundColor: 'transparent',
     borderColor: '#fecdd3',
   },
   categoryChipIncome: {
-    backgroundColor: '#ecfdf5',
+    backgroundColor: 'transparent',
     borderColor: '#bbf7d0',
   },
   categoryChipActive: {
-    backgroundColor: '#0f172a',
+    backgroundColor: 'transparent',
     borderColor: '#0f172a',
   },
   categoryChipText: {
@@ -568,7 +568,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   categoryChipTextActive: {
-    color: '#fff',
+    color: '#0f172a',
     fontWeight: '700',
   },
   helperText: {
@@ -584,14 +584,14 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5f5',
   },
   typeChipActive: {
-    backgroundColor: '#0f172a',
+    backgroundColor: 'transparent',
     borderColor: '#0f172a',
   },
   typeChipText: {
     color: '#0f172a',
   },
   typeChipTextActive: {
-    color: '#fff',
+    color: '#0f172a',
     fontWeight: '600',
   },
   listHeader: {
@@ -610,6 +610,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#cbd5f5',
+    backgroundColor: 'transparent',
   },
   refreshText: {
     color: '#0f172a',
@@ -752,16 +753,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#1e293b',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#1e293b',
   },
   deleteButton: {
-    backgroundColor: '#ef4444',
+    borderColor: '#ef4444',
   },
   cancelButton: {
-    backgroundColor: '#94a3b8',
+    borderColor: '#94a3b8',
   },
   actionText: {
-    color: '#fff',
+    color: '#0f172a',
     fontSize: 12,
     fontWeight: '600',
   },

@@ -34,6 +34,8 @@ export function HomeScreen({ navigation }: { navigation: any }) {
   const [selectedMonth, setSelectedMonth] = useState(dayjs().startOf('month'));
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [addModalVisible, setAddModalVisible] = useState(false);
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [detailModalType, setDetailModalType] = useState<TransactionType>('INCOME');
   const [type, setType] = useState<TransactionType>('EXPENSE');
   const [amount, setAmount] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
@@ -117,6 +119,11 @@ export function HomeScreen({ navigation }: { navigation: any }) {
       .filter((item) => dayjs(item.occurredAt).format('YYYY-MM-DD') === today)
       .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
   }, [items]);
+  const detailItems = useMemo(() => {
+    return monthItems
+      .filter((item) => item.type === detailModalType)
+      .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
+  }, [monthItems, detailModalType]);
 
   const monthLabel = `${selectedMonth.year()}년 ${selectedMonth.month() + 1}월`;
   const isCurrentMonth =
@@ -237,6 +244,13 @@ export function HomeScreen({ navigation }: { navigation: any }) {
   const closeAddModal = () => {
     setAddModalVisible(false);
   };
+  const openDetailModal = (nextType: TransactionType) => {
+    setDetailModalType(nextType);
+    setDetailModalVisible(true);
+  };
+  const closeDetailModal = () => {
+    setDetailModalVisible(false);
+  };
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -267,17 +281,23 @@ export function HomeScreen({ navigation }: { navigation: any }) {
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       <View style={styles.row}>
-        <View style={[styles.statCard, styles.incomeCard]}>
+        <Pressable
+          style={[styles.statCard, styles.incomeCard]}
+          onPress={() => openDetailModal('INCOME')}
+        >
           <Text style={styles.statLabel}>수입</Text>
           <Text style={[styles.statValue, styles.incomeText]}>{incomeTotal.toLocaleString()}원</Text>
-        </View>
-        <View style={[styles.statCard, styles.expenseCard]}>
+        </Pressable>
+        <Pressable
+          style={[styles.statCard, styles.expenseCard]}
+          onPress={() => openDetailModal('EXPENSE')}
+        >
           <Text style={styles.statLabel}>지출</Text>
           <Text style={[styles.statValue, styles.expenseText]}>{expenseTotal.toLocaleString()}원</Text>
           <Text style={styles.expenseSubText}>일반 지출 {normalExpense.toLocaleString()}원</Text>
           <Text style={styles.expenseSubText}>예적금 {savingsAmount.toLocaleString()}원</Text>
           <Text style={styles.expenseSubText}>투자 {investAmount.toLocaleString()}원</Text>
-        </View>
+        </Pressable>
       </View>
 
       {isCurrentMonth ? (
@@ -437,6 +457,47 @@ export function HomeScreen({ navigation }: { navigation: any }) {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={detailModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeDetailModal}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={closeDetailModal}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <View style={styles.detailHeader}>
+              <Text style={styles.modalTitle}>
+                {monthLabel} {detailModalType === 'INCOME' ? '수입' : '지출'} 상세
+              </Text>
+              <Pressable style={styles.addModalCloseButton} onPress={closeDetailModal}>
+                <Text style={styles.addModalCloseText}>X</Text>
+              </Pressable>
+            </View>
+            {detailItems.length === 0 ? (
+              <Text style={styles.helperText}>해당 내역이 없습니다.</Text>
+            ) : (
+              <ScrollView style={styles.detailList} nestedScrollEnabled>
+                {detailItems.map((item) => (
+                  <View key={item.id} style={styles.detailRow}>
+                    <View>
+                      <Text style={styles.detailCategory}>
+                        {categoryMap.get(item.categoryId)?.name ?? `카테고리 ${item.categoryId}`}
+                      </Text>
+                      <Text style={styles.detailDate}>{dayjs(item.occurredAt).format('YYYY-MM-DD')}</Text>
+                      {item.memo ? <Text style={styles.detailMemo}>{item.memo}</Text> : null}
+                    </View>
+                    <Text style={item.type === 'INCOME' ? styles.detailIncome : styles.detailExpense}>
+                      {item.type === 'INCOME' ? '+' : '-'}
+                      {item.amount.toLocaleString()}원
+                    </Text>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -498,12 +559,12 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   incomeCard: {
-    backgroundColor: '#ecfdf5',
+    backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#bbf7d0',
   },
   expenseCard: {
-    backgroundColor: '#fff1f2',
+    backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#fecdd3',
   },
@@ -613,13 +674,15 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   inlineAddButton: {
-    backgroundColor: '#0f172a',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#0f172a',
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
   inlineAddText: {
-    color: '#fff',
+    color: '#0f172a',
     fontWeight: '700',
     fontSize: 12,
   },
@@ -654,11 +717,53 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#e2e8f0',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
   },
   addModalCloseText: {
     color: '#0f172a',
     fontSize: 12,
+    fontWeight: '800',
+  },
+  detailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  detailList: {
+    maxHeight: 320,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  detailCategory: {
+    color: '#0f172a',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  detailDate: {
+    color: '#64748b',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  detailMemo: {
+    color: '#475569',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  detailIncome: {
+    color: '#15803d',
+    fontWeight: '800',
+  },
+  detailExpense: {
+    color: '#b91c1c',
     fontWeight: '800',
   },
   monthOption: {
@@ -668,7 +773,9 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   monthOptionSelected: {
-    backgroundColor: '#0f172a',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#0f172a',
   },
   monthOptionText: {
     fontSize: 17,
@@ -677,7 +784,7 @@ const styles = StyleSheet.create({
   },
   monthOptionTextSelected: {
     fontSize: 17,
-    color: '#fff',
+    color: '#0f172a',
     fontWeight: '700',
   },
   addModalBackdrop: {
@@ -711,14 +818,14 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5f5',
   },
   typeChipActive: {
-    backgroundColor: '#0f172a',
     borderColor: '#0f172a',
+    backgroundColor: 'transparent',
   },
   typeChipText: {
     color: '#0f172a',
   },
   typeChipTextActive: {
-    color: '#fff',
+    color: '#0f172a',
     fontWeight: '600',
   },
   categorySection: {
@@ -743,23 +850,23 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5f5',
   },
   categoryChipExpense: {
-    backgroundColor: '#fff1f2',
+    backgroundColor: 'transparent',
     borderColor: '#fecdd3',
   },
   categoryChipIncome: {
-    backgroundColor: '#ecfdf5',
+    backgroundColor: 'transparent',
     borderColor: '#bbf7d0',
   },
   categoryChipActive: {
-    backgroundColor: '#0f172a',
     borderColor: '#0f172a',
+    backgroundColor: 'transparent',
   },
   categoryChipText: {
     color: '#0f172a',
     fontWeight: '600',
   },
   categoryChipTextActive: {
-    color: '#fff',
+    color: '#0f172a',
     fontWeight: '700',
   },
   modalActions: {

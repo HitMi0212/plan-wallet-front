@@ -25,10 +25,12 @@ export function PrimaryButton({ title, onPress, disabled }: PrimaryButtonProps) 
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: '#0f172a',
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#0f172a',
+    backgroundColor: 'transparent',
   },
   pressed: {
     opacity: 0.85,
@@ -37,7 +39,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   text: {
-    color: '#fff',
+    color: '#0f172a',
     fontWeight: '700',
     fontSize: 16,
   },

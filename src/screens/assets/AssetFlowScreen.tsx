@@ -513,13 +513,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   quickAddButton: {
-    backgroundColor: '#0f172a',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#0f172a',
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 7,
   },
   quickAddText: {
-    color: '#fff',
+    color: '#0f172a',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -574,20 +576,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   accountEditButton: {
-    backgroundColor: '#1e293b',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#1e293b',
   },
   accountDeleteButton: {
-    backgroundColor: '#dc2626',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#dc2626',
   },
   accountActionText: {
-    color: '#fff',
+    color: '#0f172a',
     fontSize: 13,
     fontWeight: '700',
   },
   addRecordButton: {
     borderWidth: 1,
     borderColor: '#2563eb',
-    backgroundColor: '#fff',
+    backgroundColor: 'transparent',
     borderRadius: 10,
     paddingVertical: 10,
     alignItems: 'center',
@@ -634,13 +640,17 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   editButton: {
-    backgroundColor: '#1e293b',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#1e293b',
   },
   deleteButton: {
-    backgroundColor: '#dc2626',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#dc2626',
   },
   smallButtonText: {
-    color: '#fff',
+    color: '#0f172a',
     fontSize: 11,
     fontWeight: '700',
   },
@@ -686,14 +696,14 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5f5',
   },
   typeChipActive: {
-    backgroundColor: '#0f172a',
+    backgroundColor: 'transparent',
     borderColor: '#0f172a',
   },
   typeChipText: {
     color: '#0f172a',
   },
   typeChipTextActive: {
-    color: '#fff',
+    color: '#0f172a',
     fontWeight: '600',
   },
   dateField: {
@@ -711,7 +721,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#fff',
+    backgroundColor: 'transparent',
   },
   dateButtonText: {
     fontSize: 15,
