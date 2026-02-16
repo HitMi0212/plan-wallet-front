@@ -40,6 +40,8 @@ export function TransactionScreen() {
   const [occurredAt, setOccurredAt] = useState(dayjs().toISOString());
   const [showOccurredDatePicker, setShowOccurredDatePicker] = useState(false);
   const [addModalVisible, setAddModalVisible] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(dayjs().startOf('day'));
+  const [calendarMonth, setCalendarMonth] = useState(dayjs().startOf('month'));
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingAmount, setEditingAmount] = useState('');
@@ -60,8 +62,11 @@ export function TransactionScreen() {
   }, [categories.length, loadCategories]);
 
   const sortedItems = useMemo(
-    () => [...items].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)),
-    [items]
+    () =>
+      [...items]
+        .filter((item) => dayjs(item.occurredAt).format('YYYY-MM-DD') === selectedDate.format('YYYY-MM-DD'))
+        .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)),
+    [items, selectedDate]
   );
 
   const categoryMap = useMemo(() => {
@@ -86,14 +91,52 @@ export function TransactionScreen() {
     ? dayjs(editingOccurredAt).toDate()
     : new Date();
 
-  const resetAddForm = () => {
+  const resetAddForm = (baseDate: dayjs.Dayjs = selectedDate) => {
     setType('EXPENSE');
     setAmount('');
     setSelectedCategoryId(null);
     setMemo('');
-    setOccurredAt(dayjs().toISOString());
+    setOccurredAt(baseDate.hour(12).minute(0).second(0).millisecond(0).toISOString());
     setShowOccurredDatePicker(false);
   };
+
+  const moveCalendarMonth = (delta: number) => {
+    const next = calendarMonth.add(delta, 'month').startOf('month');
+    setCalendarMonth(next);
+    if (selectedDate.year() !== next.year() || selectedDate.month() !== next.month()) {
+      setSelectedDate(next.startOf('day'));
+    }
+  };
+
+  const calendarDays = useMemo(() => {
+    const start = calendarMonth.startOf('month');
+    const daysInMonth = calendarMonth.daysInMonth();
+    const leadingEmpty = start.day();
+    const cells: Array<dayjs.Dayjs | null> = [];
+
+    for (let i = 0; i < leadingEmpty; i += 1) {
+      cells.push(null);
+    }
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      cells.push(calendarMonth.date(day));
+    }
+    while (cells.length % 7 !== 0) {
+      cells.push(null);
+    }
+
+    return cells;
+  }, [calendarMonth]);
+  const dayIndicators = useMemo(() => {
+    const map = new Map<string, { hasIncome: boolean; hasExpense: boolean }>();
+    items.forEach((item) => {
+      const key = dayjs(item.occurredAt).format('YYYY-MM-DD');
+      const prev = map.get(key) ?? { hasIncome: false, hasExpense: false };
+      if (item.type === 'INCOME') prev.hasIncome = true;
+      if (item.type === 'EXPENSE') prev.hasExpense = true;
+      map.set(key, prev);
+    });
+    return map;
+  }, [items]);
 
   useEffect(() => {
     if (selectedCategoryId === null) return;
@@ -185,8 +228,58 @@ export function TransactionScreen() {
     <View style={styles.container}>
       {error ? <ErrorBanner message={error} /> : null}
 
+      <View style={styles.calendarCard}>
+        <View style={styles.calendarHeader}>
+          <Pressable style={styles.calendarNavButton} onPress={() => moveCalendarMonth(-1)}>
+            <Text style={styles.calendarNavText}>이전</Text>
+          </Pressable>
+          <Text style={styles.calendarMonthText}>{calendarMonth.format('YYYY년 M월')}</Text>
+          <Pressable style={styles.calendarNavButton} onPress={() => moveCalendarMonth(1)}>
+            <Text style={styles.calendarNavText}>다음</Text>
+          </Pressable>
+        </View>
+        <View style={styles.weekRow}>
+          {['일', '월', '화', '수', '목', '금', '토'].map((weekday) => (
+            <Text key={weekday} style={styles.weekdayText}>
+              {weekday}
+            </Text>
+          ))}
+        </View>
+        <View style={styles.daysGrid}>
+          {calendarDays.map((date, index) => {
+            if (!date) {
+              return <View key={`empty-${index}`} style={styles.dayCell} />;
+            }
+            const isSelected = date.format('YYYY-MM-DD') === selectedDate.format('YYYY-MM-DD');
+            const isToday = date.format('YYYY-MM-DD') === dayjs().format('YYYY-MM-DD');
+            const isHoliday = date.day() === 0 || date.day() === 6;
+            const indicator = dayIndicators.get(date.format('YYYY-MM-DD'));
+            return (
+              <Pressable
+                key={date.format('YYYY-MM-DD')}
+                style={[styles.dayCell, isSelected && styles.dayCellSelected]}
+                onPress={() => setSelectedDate(date.startOf('day'))}
+              >
+                <Text
+                  style={[
+                    styles.dayText,
+                    isHoliday && styles.dayTextHoliday,
+                    isToday && styles.dayTextToday,
+                    isSelected && styles.dayTextSelected,
+                  ]}
+                >
+                  {date.date()}
+                </Text>
+                <View style={styles.dotRow}>
+                  {indicator?.hasIncome ? <View style={[styles.dot, styles.dotIncome]} /> : null}
+                  {indicator?.hasExpense ? <View style={[styles.dot, styles.dotExpense]} /> : null}
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
       <View style={styles.listHeader}>
-        <Text style={styles.sectionTitle}>거래 목록</Text>
         <View style={styles.headerActions}>
           <Pressable
             style={styles.refreshButton}
@@ -197,9 +290,6 @@ export function TransactionScreen() {
           >
             <Text style={styles.refreshText}>추가</Text>
           </Pressable>
-          <Pressable style={styles.refreshButton} onPress={load}>
-            <Text style={styles.refreshText}>새로고침</Text>
-          </Pressable>
         </View>
       </View>
 
@@ -208,7 +298,7 @@ export function TransactionScreen() {
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
-        ListEmptyComponent={<EmptyState title="거래 내역이 없습니다." description="첫 거래를 추가해 보세요." />}
+        ListEmptyComponent={<EmptyState title="선택한 날짜의 거래가 없습니다." description="달력에서 날짜를 바꾸거나 새 거래를 추가해 보세요." />}
         renderItem={({ item }) => (
           <View style={styles.listItem}>
             {editingId === item.id ? (
@@ -287,10 +377,10 @@ export function TransactionScreen() {
               <>
                 <View>
                   <Text style={item.type === 'EXPENSE' ? styles.itemNameExpense : styles.itemNameIncome}>
-                    {item.type === 'EXPENSE' ? '지출' : '수입'} {item.amount.toLocaleString()}원
+                    {categoryMap.get(item.categoryId)?.name ?? `카테고리 ${item.categoryId}`}{' '}
+                    {item.amount.toLocaleString()}원
                   </Text>
                   <Text style={styles.itemMeta}>
-                    {categoryMap.get(item.categoryId)?.name ?? `카테고리 ${item.categoryId}`} ·{' '}
                     {dayjs(item.occurredAt).format('YYYY-MM-DD')}
                   </Text>
                 </View>
@@ -320,7 +410,12 @@ export function TransactionScreen() {
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <ScrollView contentContainerStyle={styles.modalContentContainer}>
-              <Text style={styles.sectionTitle}>새 거래 추가</Text>
+              <View style={styles.modalHeader}>
+                <View />
+                <Pressable style={styles.closeButton} onPress={() => setAddModalVisible(false)}>
+                  <Text style={styles.closeButtonText}>X</Text>
+                </Pressable>
+              </View>
               <View style={styles.typeRow}>
                 {typeOptions.map((option) => (
                   <Pressable
@@ -362,7 +457,7 @@ export function TransactionScreen() {
                   <Text style={styles.helperText}>{type === 'EXPENSE' ? '지출' : '수입'} 카테고리를 먼저 추가해 주세요.</Text>
                 ) : null}
               </View>
-              <TextField label="메모" value={memo} onChangeText={setMemo} placeholder="예: 점심" />
+              <TextField label="비고" value={memo} onChangeText={setMemo} placeholder="예: 점심" />
               <View style={styles.dateField}>
                 <Text style={styles.dateFieldLabel}>발생일</Text>
                 <Pressable style={styles.dateButton} onPress={() => setShowOccurredDatePicker(true)}>
@@ -387,7 +482,6 @@ export function TransactionScreen() {
 
               <View style={styles.modalActions}>
                 <PrimaryButton title={loading ? '처리 중...' : '등록'} onPress={handleAdd} disabled={loading} />
-                <PrimaryButton title="취소" onPress={() => setAddModalVisible(false)} />
               </View>
             </ScrollView>
           </View>
@@ -404,11 +498,6 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 24,
     backgroundColor: '#f8fafc',
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 12,
   },
   typeRow: {
     flexDirection: 'row',
@@ -504,7 +593,7 @@ const styles = StyleSheet.create({
   },
   listHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     marginBottom: 8,
   },
@@ -525,6 +614,100 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingBottom: 40,
+  },
+  calendarCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 14,
+    marginBottom: 12,
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  calendarNavButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#cbd5f5',
+  },
+  calendarNavText: {
+    color: '#0f172a',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  calendarMonthText: {
+    color: '#0f172a',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  weekRow: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  weekdayText: {
+    width: '14.285%',
+    textAlign: 'center',
+    color: '#64748b',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  daysGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  dayCell: {
+    width: '14.285%',
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    borderRadius: 8,
+    paddingTop: 6,
+  },
+  dayCellSelected: {
+    backgroundColor: '#dbeafe',
+    borderWidth: 1,
+    borderColor: '#60a5fa',
+  },
+  dayText: {
+    color: '#0f172a',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  dayTextHoliday: {
+    color: '#dc2626',
+  },
+  dayTextToday: {
+    color: '#2563eb',
+    fontWeight: '800',
+  },
+  dayTextSelected: {
+    color: '#1d4ed8',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  dotRow: {
+    marginTop: 2,
+    flexDirection: 'row',
+    gap: 3,
+    height: 6,
+    alignItems: 'center',
+  },
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 999,
+  },
+  dotIncome: {
+    backgroundColor: '#16a34a',
+  },
+  dotExpense: {
+    backgroundColor: '#dc2626',
   },
   listItem: {
     backgroundColor: '#fff',
@@ -601,6 +784,26 @@ const styles = StyleSheet.create({
   },
   modalContentContainer: {
     paddingBottom: 4,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  closeButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+  },
+  closeButtonText: {
+    color: '#0f172a',
+    fontWeight: '800',
+    fontSize: 12,
   },
   modalActions: {
     gap: 8,
