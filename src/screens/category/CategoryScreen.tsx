@@ -3,7 +3,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Alert,
   FlatList,
+  Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -52,6 +54,7 @@ export function CategoryScreen() {
   const [type, setType] = useState<CategoryType>('EXPENSE');
   const [expenseKind, setExpenseKind] = useState<ExpenseCategoryKind>('NORMAL');
   const [filter, setFilter] = useState<CategoryFilter>('ALL');
+  const [addModalVisible, setAddModalVisible] = useState(false);
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState('');
@@ -94,7 +97,10 @@ export function CategoryScreen() {
       type,
       expenseKind: type === 'EXPENSE' ? expenseKind : 'NORMAL',
     });
+    setAddModalVisible(false);
     setName('');
+    setType('EXPENSE');
+    setExpenseKind('NORMAL');
   };
 
   const startEdit = (id: number, currentName: string, currentType: CategoryType, currentExpenseKind?: ExpenseCategoryKind) => {
@@ -123,48 +129,26 @@ export function CategoryScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.formCard}>
-        <Text style={styles.sectionTitle}>새 카테고리</Text>
-        <View style={styles.typeRow}>
-          {typeOptions.map((option) => (
-            <Pressable
-              key={option.value}
-              style={[styles.typeChip, type === option.value && styles.typeChipActive]}
-              onPress={() => setType(option.value)}
-            >
-              <Text style={type === option.value ? styles.typeChipTextActive : styles.typeChipText}>
-                {option.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-        {type === 'EXPENSE' ? (
-          <View style={styles.typeRow}>
-            {expenseKindOptions.map((option) => (
-              <Pressable
-                key={option.value}
-                style={[styles.typeChip, expenseKind === option.value && styles.typeChipActive]}
-                onPress={() => setExpenseKind(option.value)}
-              >
-                <Text style={expenseKind === option.value ? styles.typeChipTextActive : styles.typeChipText}>
-                  {option.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
-
-        <TextField label="카테고리 이름" value={name} onChangeText={setName} placeholder="예: 식비" />
-        <PrimaryButton title={loading ? '처리 중...' : '추가'} onPress={handleAdd} disabled={loading} />
-      </View>
-
       {error ? <ErrorBanner message={error} /> : null}
 
       <View style={styles.listHeader}>
         <Text style={styles.sectionTitle}>카테고리 목록</Text>
-        <Pressable style={styles.refreshButton} onPress={load}>
-          <Text style={styles.refreshText}>새로고침</Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable
+            style={styles.refreshButton}
+            onPress={() => {
+              setType('EXPENSE');
+              setExpenseKind('NORMAL');
+              setName('');
+              setAddModalVisible(true);
+            }}
+          >
+            <Text style={styles.refreshText}>추가</Text>
+          </Pressable>
+          <Pressable style={styles.refreshButton} onPress={load}>
+            <Text style={styles.refreshText}>새로고침</Text>
+          </Pressable>
+        </View>
       </View>
       <View style={styles.typeRow}>
         {filterOptions.map((option) => (
@@ -254,6 +238,54 @@ export function CategoryScreen() {
           </View>
         )}
       />
+
+      <Modal
+        visible={addModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setAddModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <ScrollView contentContainerStyle={styles.modalContentContainer}>
+              <Text style={styles.sectionTitle}>새 카테고리</Text>
+              <View style={styles.typeRow}>
+                {typeOptions.map((option) => (
+                  <Pressable
+                    key={option.value}
+                    style={[styles.typeChip, type === option.value && styles.typeChipActive]}
+                    onPress={() => setType(option.value)}
+                  >
+                    <Text style={type === option.value ? styles.typeChipTextActive : styles.typeChipText}>
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              {type === 'EXPENSE' ? (
+                <View style={styles.typeRow}>
+                  {expenseKindOptions.map((option) => (
+                    <Pressable
+                      key={option.value}
+                      style={[styles.typeChip, expenseKind === option.value && styles.typeChipActive]}
+                      onPress={() => setExpenseKind(option.value)}
+                    >
+                      <Text style={expenseKind === option.value ? styles.typeChipTextActive : styles.typeChipText}>
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
+              <TextField label="카테고리 이름" value={name} onChangeText={setName} placeholder="예: 식비" />
+              <View style={styles.modalActions}>
+                <PrimaryButton title={loading ? '처리 중...' : '추가'} onPress={handleAdd} disabled={loading} />
+                <PrimaryButton title="취소" onPress={() => setAddModalVisible(false)} />
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
       {loading ? <LoadingOverlay /> : null}
     </View>
   );
@@ -265,18 +297,14 @@ const styles = StyleSheet.create({
     padding: 24,
     backgroundColor: '#f8fafc',
   },
-  formCard: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 12,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
   },
   typeRow: {
     flexDirection: 'row',
@@ -373,5 +401,26 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.35)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 16,
+    maxHeight: '90%',
+  },
+  modalContentContainer: {
+    paddingBottom: 4,
+  },
+  modalActions: {
+    gap: 8,
+    marginTop: 8,
   },
 });

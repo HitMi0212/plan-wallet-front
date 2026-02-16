@@ -72,6 +72,14 @@ export function TransactionScreen() {
     () => [...categories].sort((a, b) => a.name.localeCompare(b.name)),
     [categories]
   );
+  const addCategories = useMemo(
+    () => sortedCategories.filter((category) => category.type === type),
+    [sortedCategories, type]
+  );
+  const editCategories = useMemo(
+    () => sortedCategories.filter((category) => category.type === editingType),
+    [sortedCategories, editingType]
+  );
 
   const occurredDate = dayjs(occurredAt).isValid() ? dayjs(occurredAt).toDate() : new Date();
   const editingOccurredDate = dayjs(editingOccurredAt).isValid()
@@ -86,6 +94,22 @@ export function TransactionScreen() {
     setOccurredAt(dayjs().toISOString());
     setShowOccurredDatePicker(false);
   };
+
+  useEffect(() => {
+    if (selectedCategoryId === null) return;
+    const selected = categories.find((category) => category.id === selectedCategoryId);
+    if (!selected || selected.type !== type) {
+      setSelectedCategoryId(null);
+    }
+  }, [type, selectedCategoryId, categories]);
+
+  useEffect(() => {
+    if (editingCategoryId === null) return;
+    const selected = categories.find((category) => category.id === editingCategoryId);
+    if (!selected || selected.type !== editingType) {
+      setEditingCategoryId(null);
+    }
+  }, [editingType, editingCategoryId, categories]);
 
   const handleAdd = async () => {
     const parsedAmount = Number(amount);
@@ -204,7 +228,7 @@ export function TransactionScreen() {
                 </View>
                 <TextInput style={styles.editInput} value={editingAmount} onChangeText={setEditingAmount} />
                 <View style={styles.categoryRow}>
-                  {sortedCategories.map((category) => (
+                  {editCategories.map((category) => (
                     <Pressable
                       key={category.id}
                       style={[
@@ -226,8 +250,10 @@ export function TransactionScreen() {
                     </Pressable>
                   ))}
                 </View>
-                {sortedCategories.length === 0 ? (
-                  <Text style={styles.helperText}>카테고리를 먼저 추가해 주세요.</Text>
+                {editCategories.length === 0 ? (
+                  <Text style={styles.helperText}>
+                    {editingType === 'EXPENSE' ? '지출' : '수입'} 카테고리를 먼저 추가해 주세요.
+                  </Text>
                 ) : null}
                 <TextInput style={styles.editInput} value={editingMemo} onChangeText={setEditingMemo} />
                 <Pressable style={styles.dateButton} onPress={() => setShowEditingOccurredDatePicker(true)}>
@@ -312,7 +338,7 @@ export function TransactionScreen() {
               <View style={styles.categorySection}>
                 <Text style={styles.categoryLabel}>카테고리</Text>
                 <View style={styles.categoryRow}>
-                  {sortedCategories.map((category) => (
+                  {addCategories.map((category) => (
                     <Pressable
                       key={category.id}
                       style={[
@@ -332,8 +358,8 @@ export function TransactionScreen() {
                     </Pressable>
                   ))}
                 </View>
-                {sortedCategories.length === 0 ? (
-                  <Text style={styles.helperText}>카테고리를 먼저 추가해 주세요.</Text>
+                {addCategories.length === 0 ? (
+                  <Text style={styles.helperText}>{type === 'EXPENSE' ? '지출' : '수입'} 카테고리를 먼저 추가해 주세요.</Text>
                 ) : null}
               </View>
               <TextField label="메모" value={memo} onChangeText={setMemo} placeholder="예: 점심" />

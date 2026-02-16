@@ -76,29 +76,34 @@ export function SettingsScreen() {
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>로그인</Text>
         <Text style={styles.statusText}>{isAuthenticated ? '현재 상태: 로그인됨' : '현재 상태: 비로그인(게스트)'}</Text>
-        <TextField
-          label="이메일"
-          value={email}
-          onChangeText={setEmail}
-          placeholder="user@example.com"
-          keyboardType="email-address"
-        />
-        <TextField
-          label="비밀번호"
-          value={password}
-          onChangeText={setPassword}
-          placeholder="비밀번호"
-          secureTextEntry
-        />
-        <TextField
-          label="닉네임(회원가입용)"
-          value={nickname}
-          onChangeText={setNickname}
-          placeholder="닉네임"
-        />
-        <PrimaryButton title="로그인" onPress={handleLogin} />
-        <PrimaryButton title="회원가입" onPress={handleSignUp} />
-        <PrimaryButton title="로그아웃" onPress={logout} />
+        {isAuthenticated ? (
+          <PrimaryButton title="로그아웃" onPress={logout} />
+        ) : (
+          <>
+            <TextField
+              label="이메일"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="user@example.com"
+              keyboardType="email-address"
+            />
+            <TextField
+              label="비밀번호"
+              value={password}
+              onChangeText={setPassword}
+              placeholder="비밀번호"
+              secureTextEntry
+            />
+            <TextField
+              label="닉네임(회원가입용)"
+              value={nickname}
+              onChangeText={setNickname}
+              placeholder="닉네임"
+            />
+            <PrimaryButton title="로그인" onPress={handleLogin} />
+            <PrimaryButton title="회원가입" onPress={handleSignUp} />
+          </>
+        )}
       </View>
 
       <View style={styles.card}>

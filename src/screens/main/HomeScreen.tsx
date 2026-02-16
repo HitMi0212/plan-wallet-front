@@ -2,7 +2,6 @@ import dayjs from 'dayjs';
 import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { PrimaryButton } from '../../components/PrimaryButton';
 import { ExpenseCategoryKind } from '../../services/categoryApi';
 import { requireAuthenticatedUserId, seedDemoDataIfEmpty } from '../../services/localDb';
 import { useCategoryStore } from '../../stores/categoryStore';
@@ -84,21 +83,12 @@ export function HomeScreen({ navigation }: { navigation: any }) {
     };
   }, [monthItems, categoryMap]);
 
-  const { todayIncome, todayExpense } = useMemo(() => {
+  const todayItems = useMemo(() => {
     const today = dayjs().format('YYYY-MM-DD');
-    const todayItems = items.filter((item) => dayjs(item.occurredAt).format('YYYY-MM-DD') === today);
-    return {
-      todayIncome: todayItems
-        .filter((item) => item.type === 'INCOME')
-        .reduce((sum, item) => sum + item.amount, 0),
-      todayExpense: todayItems
-        .filter((item) => item.type === 'EXPENSE')
-        .reduce((sum, item) => sum + item.amount, 0),
-    };
+    return items
+      .filter((item) => dayjs(item.occurredAt).format('YYYY-MM-DD') === today)
+      .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
   }, [items]);
-  const todayTotal = todayIncome + todayExpense;
-  const todayIncomeRatio = todayTotal > 0 ? todayIncome / todayTotal : 0;
-  const todayExpenseRatio = todayTotal > 0 ? todayExpense / todayTotal : 0;
 
   const monthLabel = `${selectedMonth.year()}년 ${selectedMonth.month() + 1}월`;
 
@@ -155,31 +145,13 @@ export function HomeScreen({ navigation }: { navigation: any }) {
         </View>
       </View>
 
-      <View style={styles.todayCard}>
-        <Text style={styles.todayTitle}>금일 현황</Text>
-        <View style={styles.todayBar}>
-          <View style={[styles.todayIncomeBar, { flex: todayIncomeRatio || 0.0001 }]} />
-          <View style={[styles.todayExpenseBar, { flex: todayExpenseRatio || 0.0001 }]} />
-        </View>
-        <View style={styles.todayAmounts}>
-          <View style={[styles.todayAmountBox, { flex: todayIncomeRatio || 0.0001 }]}>
-            <Text style={styles.todayIncome}>수입 {todayIncome.toLocaleString()}원</Text>
-          </View>
-          <View style={[styles.todayAmountBox, { flex: todayExpenseRatio || 0.0001 }]}>
-            <Text style={styles.todayExpense}>지출 {todayExpense.toLocaleString()}원</Text>
-          </View>
-        </View>
-      </View>
-
       <View style={styles.monthListCard}>
-        <Text style={styles.monthListTitle}>{monthLabel} 등록 내역</Text>
-        {monthItems.length === 0 ? (
-          <Text style={styles.helperText}>선택한 월에 등록된 내역이 없습니다.</Text>
+        <Text style={styles.monthListTitle}>금일 등록 내역</Text>
+        {todayItems.length === 0 ? (
+          <Text style={styles.helperText}>오늘 등록된 내역이 없습니다.</Text>
         ) : (
-          [...monthItems]
-            .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
-            .slice(0, 5)
-            .map((item) => (
+          <ScrollView style={styles.monthListScroll} nestedScrollEnabled>
+            {todayItems.map((item) => (
               <View key={item.id} style={styles.monthItemRow}>
                 <View>
                   <Text style={styles.monthItemDate}>{dayjs(item.occurredAt).format('MM.DD')}</Text>
@@ -192,17 +164,16 @@ export function HomeScreen({ navigation }: { navigation: any }) {
                   {item.amount.toLocaleString()}원
                 </Text>
               </View>
-            ))
+            ))}
+          </ScrollView>
         )}
       </View>
 
       {loading ? <Text style={styles.helperText}>집계 중...</Text> : null}
 
-      <View style={styles.buttonGroup}>
-        <PrimaryButton title="새 내역 등록" onPress={() => navigation.navigate('Transactions')} />
-        <PrimaryButton title="예적금/투자 내역" onPress={() => navigation.navigate('AssetFlows')} />
-        <PrimaryButton title="총 재산" onPress={() => navigation.navigate('TotalWealth')} />
-      </View>
+      <Pressable style={styles.quickAddButton} onPress={() => navigation.navigate('Transactions')}>
+        <Text style={styles.quickAddText}>등록</Text>
+      </Pressable>
 
       <Modal visible={monthPickerOpen} transparent animationType="fade" onRequestClose={() => setMonthPickerOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setMonthPickerOpen(false)}>
@@ -333,55 +304,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 10,
   },
-  todayCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    backgroundColor: '#ffffff',
-    padding: 14,
-    marginBottom: 12,
-  },
-  todayTitle: {
-    fontSize: 14,
-    color: '#334155',
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  todayBar: {
-    height: 14,
-    borderRadius: 999,
-    overflow: 'hidden',
-    flexDirection: 'row',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#f1f5f9',
-    marginBottom: 10,
-  },
-  todayIncomeBar: {
-    backgroundColor: '#22c55e',
-  },
-  todayExpenseBar: {
-    backgroundColor: '#ef4444',
-  },
-  todayAmounts: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  todayAmountBox: {
-    flex: 1,
-  },
-  todayIncome: {
-    fontSize: 16,
-    color: '#15803d',
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  todayExpense: {
-    fontSize: 16,
-    color: '#b91c1c',
-    fontWeight: '800',
-  },
   monthListCard: {
     borderRadius: 14,
     borderWidth: 1,
@@ -389,6 +311,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     padding: 14,
     marginBottom: 12,
+    maxHeight: 300,
+  },
+  monthListScroll: {
     maxHeight: 220,
   },
   monthListTitle: {
@@ -422,9 +347,19 @@ const styles = StyleSheet.create({
     color: '#b91c1c',
     fontWeight: '800',
   },
-  buttonGroup: {
-    gap: 12,
-    marginTop: 4,
+  quickAddButton: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#0f172a',
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginTop: 2,
+    marginBottom: 8,
+  },
+  quickAddText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 13,
   },
   modalBackdrop: {
     flex: 1,
