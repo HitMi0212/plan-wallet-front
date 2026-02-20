@@ -520,15 +520,15 @@ const styles = StyleSheet.create({
   headerActionRowCompact: {
     flexDirection: 'row',
     position: 'absolute',
-    top: 12,
-    right: 12,
-    gap: 6,
+    top: 10,
+    right: 10,
+    gap: 8,
   },
   headerActionCompact: {
     borderWidth: 1,
-    borderRadius: 7,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    borderRadius: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
   headerEditCompact: {
     borderColor: '#1e293b',
@@ -537,12 +537,12 @@ const styles = StyleSheet.create({
     borderColor: '#ef4444',
   },
   headerActionCompactText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     color: '#0f172a',
   },
   headerDeleteCompactText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     color: '#dc2626',
   },

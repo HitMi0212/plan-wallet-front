@@ -668,7 +668,7 @@ const styles = StyleSheet.create({
     maxHeight: 300,
   },
   monthListScroll: {
-    maxHeight: 220,
+    maxHeight: 250,
   },
   monthListTitle: {
     fontSize: 14,
@@ -684,6 +684,7 @@ const styles = StyleSheet.create({
   monthItemRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    minHeight: 50,
     paddingVertical: 5,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
@@ -791,12 +792,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   detailList: {
-    maxHeight: 320,
+    maxHeight: 280,
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    minHeight: 56,
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',

@@ -135,16 +135,17 @@ export function TransactionFormScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{step === 'INPUT' ? '거래 등록' : '카테고리 선택'}</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.headerTitle}>{step === 'INPUT' ? '거래 등록' : '카테고리 선택'}</Text>
         <Pressable style={styles.closeButton} onPress={() => navigation.goBack()}>
           <Text style={styles.closeButtonText}>X</Text>
         </Pressable>
       </View>
       <View style={styles.body}>
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           {step === 'INPUT' ? (
             <>
+              <Text style={styles.sectionLabel}>거래 유형</Text>
               <View style={styles.typeSplitRow}>
                 <Pressable
                   style={[styles.typeHalfCard, styles.typeHalfExpense, type === 'EXPENSE' && styles.typeHalfExpenseActive]}
@@ -176,8 +177,11 @@ export function TransactionFormScreen() {
               />
             </>
           ) : (
-            <View style={styles.categorySection}>
-              <Text style={styles.categoryLabel}>카테고리</Text>
+            <>
+              <View style={styles.categoryHeaderRow}>
+                <Text style={styles.sectionLabel}>카테고리</Text>
+                <Text style={styles.categoryHint}>많이 사용한 순</Text>
+              </View>
               <View style={styles.categoryGrid}>
                 {addCategories.map((category) => (
                   <Pressable
@@ -198,13 +202,15 @@ export function TransactionFormScreen() {
               {addCategories.length === 0 ? (
                 <Text style={styles.helperText}>{type === 'EXPENSE' ? '지출' : '수입'} 카테고리를 먼저 추가해 주세요.</Text>
               ) : null}
-            </View>
+            </>
           )}
         </ScrollView>
       </View>
       <View style={styles.bottomActionBar}>
         {step === 'INPUT' ? (
-          <PrimaryButton title="다음" onPress={handleNext} />
+          <View style={styles.actionWrap}>
+            <PrimaryButton title="다음" onPress={handleNext} />
+          </View>
         ) : (
           <View style={styles.stepActions}>
             <View style={styles.stepActionItem}>
@@ -256,13 +262,13 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingTop: 56,
   },
-  header: {
+  headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
-  title: {
+  headerTitle: {
     color: '#0f172a',
     fontSize: 18,
     fontWeight: '800',
@@ -275,30 +281,45 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#cbd5e1',
+    backgroundColor: '#ffffff',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
   closeButtonText: {
-    color: '#0f172a',
+    color: '#334155',
     fontWeight: '800',
     fontSize: 12,
   },
-  content: {
-    paddingBottom: 12,
-  },
+  content: { paddingBottom: 8 },
   body: {
     flex: 1,
   },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginBottom: 10,
+  },
   typeSplitRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     marginBottom: 14,
   },
   typeHalfCard: {
     flex: 1,
-    minHeight: 72,
-    borderRadius: 14,
+    minHeight: 52,
+    borderRadius: 12,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
   typeHalfExpense: {
     borderColor: '#3b82f6',
@@ -318,7 +339,7 @@ const styles = StyleSheet.create({
   },
   typeHalfText: {
     color: '#0f172a',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
   },
   typeHalfTextActive: {
@@ -336,17 +357,33 @@ const styles = StyleSheet.create({
   categoryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 8,
+  },
+  categoryHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  categoryHint: {
+    color: '#64748b',
+    fontSize: 12,
+    fontWeight: '600',
   },
   categorySmallCard: {
-    width: '23.5%',
-    minHeight: 42,
+    width: '23%',
+    minHeight: 48,
     borderRadius: 10,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 4,
     paddingVertical: 6,
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 1,
   },
   categorySmallExpense: {
     borderColor: '#bfdbfe',
@@ -387,11 +424,16 @@ const styles = StyleSheet.create({
   },
   dateInputButton: {
     borderWidth: 1,
-    borderColor: '#cbd5f5',
-    borderRadius: 8,
+    borderColor: '#c7d2fe',
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 11,
-    backgroundColor: '#fff',
+    backgroundColor: '#f8faff',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 1,
   },
   dateInputText: {
     color: '#0f172a',
@@ -417,10 +459,24 @@ const styles = StyleSheet.create({
   },
   stepActionItem: {
     flex: 1,
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  actionWrap: {
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
   bottomActionBar: {
-    paddingTop: 10,
-    paddingBottom: 20,
+    marginTop: 8,
+    paddingTop: 12,
+    paddingBottom: 18,
+    paddingHorizontal: 12,
     borderTopWidth: 1,
     borderTopColor: '#e2e8f0',
     backgroundColor: '#f8fafc',

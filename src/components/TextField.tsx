@@ -24,11 +24,17 @@ export function TextField({
   multiline = false,
   numberOfLines,
 }: TextFieldProps) {
+  const [focused, setFocused] = React.useState(false);
   return (
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
-        style={[styles.input, multiline ? styles.multilineInput : null, errorMessage ? styles.inputError : null]}
+        style={[
+          styles.input,
+          multiline ? styles.multilineInput : null,
+          focused ? styles.inputFocused : null,
+          errorMessage ? styles.inputError : null,
+        ]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -38,6 +44,8 @@ export function TextField({
         multiline={multiline}
         numberOfLines={numberOfLines}
         textAlignVertical={multiline ? 'top' : 'center'}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
       />
       {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
     </View>
@@ -60,6 +68,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
+    backgroundColor: '#ffffff',
+  },
+  inputFocused: {
+    borderColor: '#16a34a',
   },
   multilineInput: {
     minHeight: 90,
