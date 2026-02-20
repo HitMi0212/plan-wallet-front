@@ -160,19 +160,6 @@ export function AssetFlowScreen({ navigation }: { navigation: any }) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <View style={styles.topRow}>
-        <Text style={styles.summaryTitle}>예적금/투자 총합</Text>
-        <Pressable
-          style={styles.quickAddButton}
-          onPress={() => {
-            resetForm();
-            setAddAccountModalVisible(true);
-          }}
-        >
-          <Text style={styles.quickAddText}>새 상품 추가</Text>
-        </Pressable>
-      </View>
-
       <View style={styles.summaryCard}>
         <Text style={styles.savingsText}>예적금 {totals.savings.toLocaleString()}원</Text>
         <Text style={styles.investText}>
@@ -191,6 +178,18 @@ export function AssetFlowScreen({ navigation }: { navigation: any }) {
         {!usdKrwRate && totals.investUsd > 0 ? (
           <Text style={styles.rateText}>USD 투자 금액 환산을 위해 환율을 불러오는 중입니다.</Text>
         ) : null}
+      </View>
+
+      <View style={styles.quickAddRow}>
+        <Pressable
+          style={styles.quickAddButton}
+          onPress={() => {
+            resetForm();
+            setAddAccountModalVisible(true);
+          }}
+        >
+          <Text style={styles.quickAddText}>새 상품 추가</Text>
+        </Pressable>
       </View>
 
       {accounts.length === 0 ? (
@@ -316,16 +315,10 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingBottom: 40,
   },
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  summaryTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0f172a',
+  quickAddRow: {
+    alignItems: 'flex-end',
+    marginTop: -4,
+    marginBottom: 12,
   },
   quickAddButton: {
     borderRadius: 10,
@@ -355,7 +348,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   savingsText: {
-    color: '#15803d',
+    color: '#0f172a',
     fontSize: 16,
     fontWeight: '800',
   },
@@ -399,7 +392,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   itemAmountSavings: {
-    color: '#15803d',
+    color: '#0f172a',
     fontWeight: '800',
     fontSize: 16,
   },

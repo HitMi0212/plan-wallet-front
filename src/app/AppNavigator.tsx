@@ -37,6 +37,10 @@ function MainTabNavigator() {
       screenOptions={({ route }) => ({
         headerTitle: route.name === 'Home' ? monthTitle : tabTitleMap[route.name as Exclude<keyof MainTabParamList, 'Home'>],
         headerTitleAlign: 'center',
+        tabBarActiveTintColor: '#16a34a',
+        tabBarInactiveTintColor: '#64748b',
+        tabBarItemStyle: { borderRadius: 10, marginVertical: 4, marginHorizontal: 2 },
+        tabBarLabelStyle: { fontWeight: '700' },
         tabBarIcon: ({ color, size, focused }) => {
           const iconMap: Record<
             keyof MainTabParamList,

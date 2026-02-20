@@ -16,18 +16,17 @@ import {
 } from 'react-native';
 
 import { ExpenseCategoryKind } from '../../services/categoryApi';
-import { requireAuthenticatedUserId, seedDemoDataIfEmpty } from '../../services/localDb';
+import {
+  getLocalAssetFlowAccounts,
+  requireAuthenticatedUserId,
+  seedDemoDataIfEmpty,
+  syncLocalAssetFlowToTransactions,
+} from '../../services/localDb';
 import { TransactionType } from '../../services/transactionApi';
 import { useCategoryStore } from '../../stores/categoryStore';
 import { useTransactionStore } from '../../stores/transactionStore';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { TextField } from '../../components/TextField';
-
-function classifyExpenseKind(kind?: ExpenseCategoryKind): 'SAVINGS' | 'INVEST' | 'OTHER' {
-  if (kind === 'SAVINGS') return 'SAVINGS';
-  if (kind === 'INVEST') return 'INVEST';
-  return 'OTHER';
-}
 
 export function HomeScreen({ navigation }: { navigation: any }) {
   const { items, loading, error, load, add } = useTransactionStore();
@@ -45,6 +44,8 @@ export function HomeScreen({ navigation }: { navigation: any }) {
   const [occurredDateInput, setOccurredDateInput] = useState(dayjs().format('YYYY-MM-DD'));
   const [showOccurredDateModal, setShowOccurredDateModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [savingsDepositTxIdSet, setSavingsDepositTxIdSet] = useState<Set<number>>(new Set());
+  const [investDepositTxIdSet, setInvestDepositTxIdSet] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     (async () => {
@@ -64,6 +65,23 @@ export function HomeScreen({ navigation }: { navigation: any }) {
     React.useCallback(() => {
       load();
       loadCategories();
+      (async () => {
+        const userId = await requireAuthenticatedUserId();
+        await syncLocalAssetFlowToTransactions(userId);
+        const accounts = await getLocalAssetFlowAccounts(userId);
+        const savingsIds = new Set<number>();
+        const investIds = new Set<number>();
+        accounts.forEach((account) => {
+          account.records.forEach((record) => {
+            const kind = record.kind ?? 'DEPOSIT';
+            if (kind !== 'DEPOSIT' || typeof record.transactionId !== 'number') return;
+            if (account.type === 'SAVINGS') savingsIds.add(record.transactionId);
+            if (account.type === 'INVEST') investIds.add(record.transactionId);
+          });
+        });
+        setSavingsDepositTxIdSet(savingsIds);
+        setInvestDepositTxIdSet(investIds);
+      })();
     }, [load, loadCategories])
   );
 
@@ -91,7 +109,18 @@ export function HomeScreen({ navigation }: { navigation: any }) {
   const { incomeTotal, expenseTotal, normalExpense, monthlyAsset, savingsAmount, investAmount } = useMemo(() => {
     const monthItemsWithCategory = monthItems.map((item) => ({
       ...item,
-      category: categoryMap.get(item.categoryId) ?? { name: '', expenseKind: 'NORMAL' as ExpenseCategoryKind },
+      category: (() => {
+        const linked = categoryMap.get(item.categoryId);
+        if (linked) return linked;
+        const fallbackName = item.categoryName ?? '';
+        const fallbackKind: ExpenseCategoryKind =
+          fallbackName === '예적금'
+            ? 'SAVINGS'
+            : fallbackName === '투자' || fallbackName === '투자 손실'
+              ? 'INVEST'
+              : 'NORMAL';
+        return { name: fallbackName, expenseKind: fallbackKind };
+      })(),
     }));
     const isInvestPnlItem = (item: (typeof monthItemsWithCategory)[number]) =>
       (item.type === 'INCOME' && item.category.name === '투자 수익') ||
@@ -106,14 +135,10 @@ export function HomeScreen({ navigation }: { navigation: any }) {
       .filter((item) => !isInvestPnlItem(item));
     const expense = expenseItems.reduce((sum, item) => sum + item.amount, 0);
     const savings = expenseItems
-      .filter((item) => {
-        return classifyExpenseKind(item.category.expenseKind) === 'SAVINGS';
-      })
+      .filter((item) => savingsDepositTxIdSet.has(item.id))
       .reduce((sum, item) => sum + item.amount, 0);
     const invest = expenseItems
-      .filter((item) => {
-        return classifyExpenseKind(item.category.expenseKind) === 'INVEST';
-      })
+      .filter((item) => investDepositTxIdSet.has(item.id))
       .reduce((sum, item) => sum + item.amount, 0);
     const nonRegularExpense = savings + invest;
 
@@ -125,18 +150,18 @@ export function HomeScreen({ navigation }: { navigation: any }) {
       savingsAmount: savings,
       investAmount: invest,
     };
-  }, [monthItems, categoryMap]);
+  }, [monthItems, categoryMap, savingsDepositTxIdSet, investDepositTxIdSet]);
 
   const todayItems = useMemo(() => {
     const today = dayjs().format('YYYY-MM-DD');
-    const isInvestPnlItem = (categoryId: number, type: TransactionType) => {
-      const categoryName = categoryMap.get(categoryId)?.name ?? '';
+    const isInvestPnlItem = (categoryId: number, type: TransactionType, fallbackName?: string) => {
+      const categoryName = categoryMap.get(categoryId)?.name ?? fallbackName ?? '';
       return (type === 'INCOME' && categoryName === '투자 수익') || (type === 'EXPENSE' && categoryName === '투자 손실');
     };
     return items
       .filter((item) => dayjs(item.occurredAt).format('YYYY-MM-DD') === today)
-      .filter((item) => !isInvestPnlItem(item.categoryId, item.type))
-      .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
+      .filter((item) => !isInvestPnlItem(item.categoryId, item.type, item.categoryName))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }, [items, categoryMap]);
   const detailItems = useMemo(() => {
     return monthItems
@@ -147,7 +172,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
   const monthLabel = `${selectedMonth.year()}년 ${selectedMonth.month() + 1}월`;
   const isCurrentMonth =
     selectedMonth.year() === dayjs().year() && selectedMonth.month() === dayjs().month();
-  const heroLabel = isCurrentMonth ? '현재 자산(이번달)' : `${selectedMonth.month() + 1}월 소비 총 합`;
+  const heroLabel = `${selectedMonth.month() + 1}월의 지갑사정`;
   const heroValue = isCurrentMonth ? monthlyAsset : -expenseTotal;
   const categoryUsageCountMap = useMemo(() => {
     const map = new Map<number, number>();
@@ -607,7 +632,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   savingsText: {
-    color: '#86efac',
+    color: '#16a34a',
     fontSize: 13,
     fontWeight: '700',
     marginTop: 4,
