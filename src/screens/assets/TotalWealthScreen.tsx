@@ -3,7 +3,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { getLocalAssetFlowDepositTransactionIds, requireAuthenticatedUserId } from '../../services/localDb';
+import { fetchUsdKrwRate } from '../../services/exchangeRateApi';
+import {
+  getLocalAssetFlowAccounts,
+  getLocalAssetFlowDepositTransactionIds,
+  requireAuthenticatedUserId,
+} from '../../services/localDb';
 import { useCategoryStore } from '../../stores/categoryStore';
 import { useTransactionStore } from '../../stores/transactionStore';
 
@@ -11,6 +16,7 @@ export function TotalWealthScreen() {
   const { items, load } = useTransactionStore();
   const categories = useCategoryStore((state) => state.items);
   const loadCategories = useCategoryStore((state) => state.load);
+  const [assetCurrentTotal, setAssetCurrentTotal] = useState(0);
   const [depositTransactionIdSet, setDepositTransactionIdSet] = useState<Set<number>>(new Set());
 
   useEffect(() => {
@@ -29,8 +35,20 @@ export function TotalWealthScreen() {
       loadCategories();
       (async () => {
         const userId = await requireAuthenticatedUserId();
-        const depositIds = await getLocalAssetFlowDepositTransactionIds(userId);
-        setDepositTransactionIdSet(new Set(depositIds));
+        const [accounts, usdKrwRate, depositTransactionIds] = await Promise.all([
+          getLocalAssetFlowAccounts(userId),
+          fetchUsdKrwRate().catch(() => null),
+          getLocalAssetFlowDepositTransactionIds(userId),
+        ]);
+        const total = accounts.reduce((sum, account) => {
+          const accountTotal = account.records.reduce((recordSum, record) => recordSum + record.amount, 0);
+          if ((account.currency ?? 'KRW') === 'USD') {
+            return sum + Math.trunc(accountTotal * (usdKrwRate ?? 0));
+          }
+          return sum + accountTotal;
+        }, 0);
+        setAssetCurrentTotal(Math.trunc(total));
+        setDepositTransactionIdSet(new Set(depositTransactionIds));
       })();
     }, [load, loadCategories])
   );
@@ -70,16 +88,15 @@ export function TotalWealthScreen() {
       .filter((item) => item.type === 'EXPENSE')
       .filter((item) => depositTransactionIdSet.has(item.id))
       .reduce((sum, item) => sum + item.amount, 0);
-
     return {
       totalIncome,
       totalExpense,
-      netWealth: totalIncome - (totalExpense - depositExpenseExcluded),
+      netWealth: totalIncome - (totalExpense - depositExpenseExcluded) + assetCurrentTotal,
       savingsExpense,
       investExpense,
       depositExpenseExcluded,
     };
-  }, [yearItems, categoryMap, depositTransactionIdSet]);
+  }, [yearItems, categoryMap, assetCurrentTotal, depositTransactionIdSet]);
 
   const thisMonth = dayjs().startOf('month');
   const monthNet = useMemo(() => {
@@ -106,16 +123,13 @@ export function TotalWealthScreen() {
       <View style={styles.mainCard}>
         <Text style={styles.title}>총 재산</Text>
         <Text style={styles.value}>{totals.netWealth.toLocaleString()}원</Text>
-        <Text style={styles.sub}>{currentYear}년 수입 - 지출 + 예적금/투자 자산</Text>
       </View>
 
       <View style={styles.card}>
         <Text style={styles.label}>{currentYear}년 수입</Text>
         <Text style={styles.income}>{totals.totalIncome.toLocaleString()}원</Text>
-        <Text style={styles.label}>{currentYear}년 지출(입금 제외)</Text>
+        <Text style={styles.label}>{currentYear}년 지출</Text>
         <Text style={styles.expense}>{(totals.totalExpense - totals.depositExpenseExcluded).toLocaleString()}원</Text>
-        <Text style={styles.label}>{currentYear}년 예적금/투자 자산(+)</Text>
-        <Text style={styles.income}>{totals.depositExpenseExcluded.toLocaleString()}원</Text>
       </View>
 
       <View style={styles.card}>
@@ -158,11 +172,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 32,
     fontWeight: '900',
-  },
-  sub: {
-    color: '#94a3b8',
-    fontSize: 12,
-    marginTop: 6,
   },
   card: {
     backgroundColor: '#fff',
