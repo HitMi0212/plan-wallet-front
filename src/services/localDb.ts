@@ -212,19 +212,22 @@ export async function updateLocalCategory(
 
 export async function deleteLocalCategory(userId: number, id: number): Promise<void> {
   const categories = await readList<LocalCategory>(CATEGORIES_KEY);
-  const categoryExists = categories.some((item) => item.userId === userId && item.id === id);
-  if (!categoryExists) {
+  const target = categories.find((item) => item.userId === userId && item.id === id);
+  if (!target) {
     throw new Error('CATEGORY_NOT_FOUND');
   }
 
+  const transactions = await readList<LocalTransaction>(TRANSACTIONS_KEY);
+  const nextTransactions = transactions.map((item) => {
+    if (item.userId === userId && item.categoryId === id && !item.categoryName) {
+      return { ...item, categoryName: target.name };
+    }
+    return item;
+  });
+  await writeList(TRANSACTIONS_KEY, nextTransactions);
+
   const nextCategories = categories.filter((item) => !(item.userId === userId && item.id === id));
   await writeList(CATEGORIES_KEY, nextCategories);
-
-  const transactions = await readList<LocalTransaction>(TRANSACTIONS_KEY);
-  const nextTransactions = transactions.filter(
-    (item) => !(item.userId === userId && item.categoryId === id)
-  );
-  await writeList(TRANSACTIONS_KEY, nextTransactions);
 }
 
 export async function getLocalTransactions(userId: number): Promise<Transaction[]> {
@@ -237,10 +240,10 @@ export async function createLocalTransaction(
   payload: TransactionCreateRequest
 ): Promise<Transaction> {
   const categories = await readList<LocalCategory>(CATEGORIES_KEY);
-  const categoryExists = categories.some(
+  const targetCategory = categories.find(
     (item) => item.userId === userId && item.id === payload.categoryId
   );
-  if (!categoryExists) {
+  if (!targetCategory) {
     throw new Error('CATEGORY_NOT_FOUND');
   }
 
@@ -252,6 +255,7 @@ export async function createLocalTransaction(
     type: payload.type,
     amount: payload.amount,
     categoryId: payload.categoryId,
+    categoryName: targetCategory.name,
     memo: payload.memo ?? null,
     occurredAt: payload.occurredAt,
     createdAt: timestamp,
@@ -269,10 +273,10 @@ export async function updateLocalTransaction(
   payload: TransactionUpdateRequest
 ): Promise<Transaction> {
   const categories = await readList<LocalCategory>(CATEGORIES_KEY);
-  const categoryExists = categories.some(
+  const targetCategory = categories.find(
     (item) => item.userId === userId && item.id === payload.categoryId
   );
-  if (!categoryExists) {
+  if (!targetCategory) {
     throw new Error('CATEGORY_NOT_FOUND');
   }
 
@@ -285,6 +289,7 @@ export async function updateLocalTransaction(
   target.type = payload.type;
   target.amount = payload.amount;
   target.categoryId = payload.categoryId;
+  target.categoryName = targetCategory.name;
   target.memo = payload.memo ?? null;
   target.occurredAt = payload.occurredAt;
   target.updatedAt = nowIso();
@@ -346,44 +351,29 @@ export async function getLocalAssetFlowDepositTransactionIds(userId: number): Pr
   return [...ids];
 }
 
-function findOrCreateAssetFlowCategory(
+function findAssetFlowCategory(
   userId: number,
   categories: LocalCategory[],
   option: {
     type: Category['type'];
     expenseKind: Category['expenseKind'];
     name: string;
-    timestamp: string;
   }
 ) {
-  let category = categories.find(
+  return categories.find(
     (item) =>
       item.userId === userId &&
       item.type === option.type &&
       item.name === option.name &&
       (item.expenseKind ?? 'NORMAL') === option.expenseKind
   );
-  if (!category) {
-    category = {
-      id: nextId(categories),
-      userId,
-      type: option.type,
-      expenseKind: option.expenseKind,
-      name: option.name,
-      createdAt: option.timestamp,
-      updatedAt: option.timestamp,
-    };
-    categories.push(category);
-  }
-  return category;
 }
 
 function resolveAssetFlowRecordToTransaction(
   userId: number,
   account: Pick<AssetFlowAccount, 'type' | 'currency' | 'bankName' | 'productName'>,
   record: AssetFlowRecord,
-  categories: LocalCategory[],
-  timestamp: string
+  categories: LocalCategory[]
 ) {
   const kind = ensureAssetFlowRecordKind(record);
   const trimmedMemo = record.memo?.trim() || null;
@@ -396,45 +386,45 @@ function resolveAssetFlowRecordToTransaction(
 
   if (kind === 'PNL' && account.type === 'INVEST') {
     if (record.amount >= 0) {
-      const incomeCategory = findOrCreateAssetFlowCategory(userId, categories, {
+      const incomeCategory = findAssetFlowCategory(userId, categories, {
         type: 'INCOME',
         expenseKind: 'NORMAL',
         name: '투자 수익',
-        timestamp,
       });
       return {
         type: 'INCOME' as const,
         amount: toKrwAmount(record.amount),
-        categoryId: incomeCategory.id,
+        categoryId: incomeCategory?.id ?? 0,
+        categoryName: '투자 수익',
         memo: trimmedMemo,
       };
     }
-    const lossCategory = findOrCreateAssetFlowCategory(userId, categories, {
+    const lossCategory = findAssetFlowCategory(userId, categories, {
       type: 'EXPENSE',
       expenseKind: 'INVEST',
       name: '투자 손실',
-      timestamp,
     });
     return {
       type: 'EXPENSE' as const,
       amount: toKrwAmount(record.amount),
-      categoryId: lossCategory.id,
+      categoryId: lossCategory?.id ?? 0,
+      categoryName: '투자 손실',
       memo: trimmedMemo,
     };
   }
 
   const expenseKind = account.type === 'SAVINGS' ? 'SAVINGS' : 'INVEST';
-  const expenseCategory = findOrCreateAssetFlowCategory(userId, categories, {
+  const expenseCategory = findAssetFlowCategory(userId, categories, {
     type: 'EXPENSE',
     expenseKind,
     name: account.type === 'SAVINGS' ? '예적금' : '투자',
-    timestamp,
   });
 
   return {
     type: 'EXPENSE' as const,
     amount: toKrwAmount(record.amount),
-    categoryId: expenseCategory.id,
+    categoryId: expenseCategory?.id ?? 0,
+    categoryName: account.type === 'SAVINGS' ? '예적금' : '투자',
     memo: trimmedMemo,
   };
 }
@@ -481,7 +471,7 @@ export async function createLocalAssetFlowAccount(
   };
 
   items.push(created);
-  const mapped = resolveAssetFlowRecordToTransaction(userId, created, created.records[0], categories, timestamp);
+  const mapped = resolveAssetFlowRecordToTransaction(userId, created, created.records[0], categories);
 
   transactions.push({
     id: transactionId,
@@ -489,6 +479,7 @@ export async function createLocalAssetFlowAccount(
     type: mapped.type,
     amount: mapped.amount,
     categoryId: mapped.categoryId,
+    categoryName: mapped.categoryName,
     memo: mapped.memo,
     occurredAt: payload.occurredAt,
     createdAt: timestamp,
@@ -534,7 +525,7 @@ export async function addLocalAssetFlowRecord(
   target.records.push(createdRecord);
   target.updatedAt = nowIso();
 
-  const mapped = resolveAssetFlowRecordToTransaction(userId, target, createdRecord, categories, target.updatedAt);
+  const mapped = resolveAssetFlowRecordToTransaction(userId, target, createdRecord, categories);
 
   transactions.push({
     id: transactionId,
@@ -542,6 +533,7 @@ export async function addLocalAssetFlowRecord(
     type: mapped.type,
     amount: mapped.amount,
     categoryId: mapped.categoryId,
+    categoryName: mapped.categoryName,
     memo: mapped.memo,
     occurredAt: payload.occurredAt,
     createdAt: target.updatedAt,
@@ -572,17 +564,24 @@ export async function syncLocalAssetFlowToTransactions(userId: number): Promise<
           ? transactions.find((txn) => txn.userId === userId && txn.id === record.transactionId)
           : null;
         if (linked) {
+          const mapped = resolveAssetFlowRecordToTransaction(userId, account, record, categories);
+          if (mapped.categoryName && linked.categoryName !== mapped.categoryName) {
+            linked.categoryName = mapped.categoryName;
+            linked.updatedAt = nowIso();
+            changed = true;
+          }
           return;
         }
         const createdAt = nowIso();
         const txId = nextId(transactions);
-        const mapped = resolveAssetFlowRecordToTransaction(userId, account, record, categories, createdAt);
+        const mapped = resolveAssetFlowRecordToTransaction(userId, account, record, categories);
         transactions.push({
           id: txId,
           userId,
           type: mapped.type,
           amount: mapped.amount,
           categoryId: mapped.categoryId,
+          categoryName: mapped.categoryName,
           memo: mapped.memo,
           occurredAt: record.occurredAt,
           createdAt,
@@ -620,7 +619,7 @@ export async function updateLocalAssetFlowRecord(
   record.occurredAt = payload.occurredAt;
   record.memo = payload.memo?.trim() || null;
   account.updatedAt = nowIso();
-  const mapped = resolveAssetFlowRecordToTransaction(userId, account, record, categories, account.updatedAt);
+  const mapped = resolveAssetFlowRecordToTransaction(userId, account, record, categories);
 
   let txn = record.transactionId
     ? transactions.find((item) => item.userId === userId && item.id === record.transactionId)
@@ -633,6 +632,7 @@ export async function updateLocalAssetFlowRecord(
       type: mapped.type,
       amount: mapped.amount,
       categoryId: mapped.categoryId,
+      categoryName: mapped.categoryName,
       memo: mapped.memo,
       occurredAt: payload.occurredAt,
       createdAt: account.updatedAt,
@@ -706,11 +706,12 @@ export async function updateLocalAssetFlowAccount(
     if (!record.transactionId) return;
     const txn = transactions.find((item) => item.userId === userId && item.id === record.transactionId);
     if (!txn) return;
-    const mapped = resolveAssetFlowRecordToTransaction(userId, account, record, categories, account.updatedAt);
-    txn.type = mapped.type;
-    txn.amount = mapped.amount;
-    txn.categoryId = mapped.categoryId;
-    txn.memo = mapped.memo;
+    const mapped = resolveAssetFlowRecordToTransaction(userId, account, record, categories);
+  txn.type = mapped.type;
+  txn.amount = mapped.amount;
+  txn.categoryId = mapped.categoryId;
+  txn.categoryName = mapped.categoryName;
+  txn.memo = mapped.memo;
     txn.updatedAt = account.updatedAt;
   });
 

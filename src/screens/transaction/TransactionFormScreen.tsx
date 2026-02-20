@@ -25,6 +25,7 @@ export function TransactionFormScreen() {
   const route = useRoute<any>();
   const { items, loading, add, load } = useTransactionStore();
   const categories = useCategoryStore((state) => state.items);
+  const addCategory = useCategoryStore((state) => state.add);
   const loadCategories = useCategoryStore((state) => state.load);
 
   const initialDate = typeof route.params?.occurredDate === 'string'
@@ -38,6 +39,8 @@ export function TransactionFormScreen() {
   const [memo, setMemo] = useState('');
   const [occurredDateInput, setOccurredDateInput] = useState(initialDate);
   const [showOccurredDateModal, setShowOccurredDateModal] = useState(false);
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
   const [step, setStep] = useState<'INPUT' | 'CATEGORY'>('INPUT');
 
   useEffect(() => {
@@ -133,6 +136,31 @@ export function TransactionFormScreen() {
     navigation.goBack();
   };
 
+  const handleCreateCategory = async () => {
+    const trimmed = newCategoryName.trim();
+    if (!trimmed) {
+      Alert.alert('입력 오류', '카테고리 이름을 입력해 주세요.');
+      return;
+    }
+
+    await addCategory({
+      name: trimmed,
+      type,
+      expenseKind: 'NORMAL',
+    });
+
+    const created = useCategoryStore
+      .getState()
+      .items
+      .filter((item) => item.type === type && item.name === trimmed)
+      .sort((a, b) => b.id - a.id)[0];
+    if (created) {
+      setSelectedCategoryId(created.id);
+    }
+    setShowAddCategoryModal(false);
+    setNewCategoryName('');
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
@@ -198,6 +226,12 @@ export function TransactionFormScreen() {
                     </Text>
                   </Pressable>
                 ))}
+                <Pressable
+                  style={styles.addCategoryCard}
+                  onPress={() => setShowAddCategoryModal(true)}
+                >
+                  <Text style={styles.addCategoryPlus}>＋</Text>
+                </Pressable>
               </View>
               {addCategories.length === 0 ? (
                 <Text style={styles.helperText}>{type === 'EXPENSE' ? '지출' : '수입'} 카테고리를 먼저 추가해 주세요.</Text>
@@ -246,6 +280,34 @@ export function TransactionFormScreen() {
                 }
               }}
             />
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={showAddCategoryModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAddCategoryModal(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowAddCategoryModal(false)}>
+          <Pressable style={styles.inlineModalCard} onPress={(event) => event.stopPropagation()}>
+            <Text style={styles.inlineModalTitle}>카테고리 추가</Text>
+            <Text style={styles.inlineModalSub}>현재 유형: {type === 'EXPENSE' ? '지출' : '수입'}</Text>
+            <TextField
+              label="카테고리 이름"
+              value={newCategoryName}
+              onChangeText={setNewCategoryName}
+              placeholder="예: 커피"
+            />
+            <View style={styles.inlineModalActions}>
+              <View style={styles.stepActionItem}>
+                <PrimaryButton title="취소" onPress={() => setShowAddCategoryModal(false)} variant="secondary" />
+              </View>
+              <View style={styles.stepActionItem}>
+                <PrimaryButton title="추가" onPress={handleCreateCategory} />
+              </View>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>
@@ -397,6 +459,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
     borderColor: '#0f172a',
   },
+  addCategoryCard: {
+    width: '23%',
+    minHeight: 48,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#94a3b8',
+    borderStyle: 'dashed',
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addCategoryPlus: {
+    color: '#334155',
+    fontSize: 22,
+    lineHeight: 24,
+    fontWeight: '700',
+  },
   categorySmallText: {
     color: '#0f172a',
     fontSize: 12,
@@ -452,6 +531,31 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e2e8f0',
     padding: 12,
+  },
+  inlineModalCard: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 14,
+  },
+  inlineModalTitle: {
+    color: '#0f172a',
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  inlineModalSub: {
+    color: '#64748b',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  inlineModalActions: {
+    marginTop: 4,
+    flexDirection: 'row',
+    gap: 8,
   },
   stepActions: {
     gap: 8,

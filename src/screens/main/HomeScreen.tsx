@@ -82,6 +82,11 @@ export function HomeScreen({ navigation }: { navigation: any }) {
       ])
     );
   }, [categories]);
+  const getCategoryName = React.useCallback(
+    (item: { categoryId: number; categoryName?: string }) =>
+      item.categoryName ?? categoryMap.get(item.categoryId)?.name ?? `카테고리 ${item.categoryId}`,
+    [categoryMap]
+  );
 
   const { incomeTotal, expenseTotal, normalExpense, monthlyAsset, savingsAmount, investAmount } = useMemo(() => {
     const monthItemsWithCategory = monthItems.map((item) => ({
@@ -172,7 +177,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
 
     monthItems.forEach((item) => {
       const prev = totals.get(item.categoryId);
-      const categoryName = categoryMap.get(item.categoryId)?.name ?? `카테고리 ${item.categoryId}`;
+      const categoryName = getCategoryName(item);
       if (prev) {
         prev.total += item.amount;
       } else {
@@ -185,7 +190,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
     });
 
     return [...totals.values()].sort((a, b) => b.total - a.total);
-  }, [monthItems, categoryMap]);
+  }, [monthItems, getCategoryName]);
   const parseDateInputToIso = (value: string) => {
     const normalized = value.trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return null;
@@ -352,7 +357,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
                 <View key={item.id} style={styles.monthItemRow}>
                   <View>
                     <Text style={styles.monthItemCategory}>
-                      {categoryMap.get(item.categoryId)?.name ?? `카테고리 ${item.categoryId}`}
+                      {getCategoryName(item)}
                     </Text>
                     {item.memo ? <Text style={styles.monthItemMemo}>{item.memo}</Text> : null}
                   </View>
@@ -541,7 +546,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
                   <View key={item.id} style={styles.detailRow}>
                     <View>
                       <Text style={styles.detailCategory}>
-                        {categoryMap.get(item.categoryId)?.name ?? `카테고리 ${item.categoryId}`}
+                        {getCategoryName(item)}
                       </Text>
                       <Text style={styles.detailDate}>{dayjs(item.occurredAt).format('YYYY-MM-DD')}</Text>
                       {item.memo ? <Text style={styles.detailMemo}>{item.memo}</Text> : null}

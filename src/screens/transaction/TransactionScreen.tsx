@@ -94,6 +94,11 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
   const categoryMap = useMemo(() => {
     return new Map(categories.map((category) => [category.id, category]));
   }, [categories]);
+  const getCategoryName = React.useCallback(
+    (item: Pick<Transaction, 'categoryId' | 'categoryName'>) =>
+      item.categoryName ?? categoryMap.get(item.categoryId)?.name ?? `카테고리 ${item.categoryId}`,
+    [categoryMap]
+  );
 
   const categoryUsageCountMap = useMemo(() => {
     const map = new Map<number, number>();
@@ -341,11 +346,11 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
           return (
             <View style={styles.listItem}>
               <Pressable style={styles.itemContent} onPress={() => openDetailModal(item)}>
-                <Text style={styles.itemNameBase}>
-                  {categoryMap.get(item.categoryId)?.name ?? `카테고리 ${item.categoryId}`}{' '}
-                  <Text style={item.type === 'EXPENSE' ? styles.itemAmountExpense : styles.itemAmountIncome}>
-                    {item.amount.toLocaleString()}원
-                  </Text>
+              <Text style={styles.itemNameBase}>
+                {getCategoryName(item)}{' '}
+                <Text style={item.type === 'EXPENSE' ? styles.itemAmountExpense : styles.itemAmountIncome}>
+                  {item.amount.toLocaleString()}원
+                </Text>
                 </Text>
                 <Text style={styles.itemMeta}>
                   {dayjs(item.occurredAt).format('YYYY-MM-DD')}

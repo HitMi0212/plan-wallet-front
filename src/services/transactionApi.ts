@@ -5,6 +5,7 @@ export interface Transaction {
   type: TransactionType;
   amount: number;
   categoryId: number;
+  categoryName?: string;
   memo?: string | null;
   occurredAt: string;
   createdAt: string;
