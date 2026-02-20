@@ -35,3 +35,7 @@ npm start
 ## 앱 이름
 
 - 앱 표시 이름은 `Plan Wallet`로 설정되어 있습니다 (`app.json`).
+
+## 개인정보 처리방침
+
+- 문서: `docs/PRIVACY_POLICY.md`
