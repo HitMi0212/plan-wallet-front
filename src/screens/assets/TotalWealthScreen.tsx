@@ -1,5 +1,6 @@
 import dayjs from 'dayjs';
 import React, { useEffect, useMemo } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useCategoryStore } from '../../stores/categoryStore';
@@ -19,6 +20,13 @@ export function TotalWealthScreen() {
       loadCategories();
     }
   }, [categories.length, loadCategories]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      load();
+      loadCategories();
+    }, [load, loadCategories])
+  );
 
   const categoryMap = useMemo(() => {
     return new Map(

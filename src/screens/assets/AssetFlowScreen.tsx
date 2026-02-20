@@ -1,5 +1,6 @@
 import dayjs from 'dayjs';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   Alert,
@@ -74,6 +75,14 @@ export function AssetFlowScreen() {
   useEffect(() => {
     loadAccounts();
   }, [loadAccounts]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadAccounts();
+      loadTransactions();
+      loadCategories();
+    }, [loadAccounts, loadTransactions, loadCategories])
+  );
 
   const totals = useMemo(() => {
     return accounts.reduce(

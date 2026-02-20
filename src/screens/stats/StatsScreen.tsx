@@ -1,5 +1,6 @@
 ﻿import dayjs from 'dayjs';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PieChart } from 'react-native-chart-kit';
 
@@ -58,6 +59,14 @@ export function StatsScreen() {
   useEffect(() => {
     loadTransactions();
   }, [loadTransactions]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      load(year, month);
+      loadTransactions();
+      loadCategories();
+    }, [load, year, month, loadTransactions, loadCategories])
+  );
 
   const expenseCategoryMap = useMemo(() => {
     return new Map(

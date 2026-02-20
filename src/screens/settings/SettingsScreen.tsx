@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
@@ -20,6 +20,12 @@ export function SettingsScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nickname, setNickname] = useState('');
+
+  useFocusEffect(
+    React.useCallback(() => {
+      hydrate();
+    }, [hydrate])
+  );
 
   const handleExport = async () => {
     try {

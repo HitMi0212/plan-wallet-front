@@ -1,7 +1,11 @@
-﻿import React from 'react';
+import React from 'react';
 import { render } from '@testing-library/react-native';
 
 import { StatsScreen } from '../screens/stats/StatsScreen';
+
+jest.mock('@react-navigation/native', () => ({
+  useFocusEffect: jest.fn(),
+}));
 
 jest.mock('../stores/statsStore', () => ({
   useStatsStore: () => ({
