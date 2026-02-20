@@ -6,6 +6,7 @@ import React, { useEffect } from 'react';
 
 import { TabIcon } from '../components/TabIcon';
 import { AssetFlowScreen } from '../screens/assets/AssetFlowScreen';
+import { AssetFlowDetailScreen } from '../screens/assets/AssetFlowDetailScreen';
 import { TotalWealthScreen } from '../screens/assets/TotalWealthScreen';
 import { CategoryScreen } from '../screens/category/CategoryScreen';
 import { BootScreen } from '../screens/common/BootScreen';
@@ -85,6 +86,15 @@ export function AppNavigator() {
       >
         <RootStack.Screen name="MainTabs" component={MainTabNavigator} />
         <RootStack.Screen name="TransactionForm" component={TransactionFormScreen} />
+        <RootStack.Screen
+          name="AssetFlowDetail"
+          component={AssetFlowDetailScreen}
+          options={{
+            headerShown: true,
+            headerTitle: '상품 상세',
+            headerTitleAlign: 'center',
+          }}
+        />
         <RootStack.Screen
           name="CategoryManagement"
           component={CategoryScreen}

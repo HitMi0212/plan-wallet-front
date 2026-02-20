@@ -20,6 +20,9 @@ export type RootStackParamList = {
     occurredDate?: string;
     type?: 'EXPENSE' | 'INCOME';
   } | undefined;
+  AssetFlowDetail: {
+    accountId: number;
+  };
   CategoryManagement: {
     filter: CategoryType;
     title: string;

@@ -84,15 +84,21 @@ export function HomeScreen({ navigation }: { navigation: any }) {
   }, [categories]);
 
   const { incomeTotal, expenseTotal, normalExpense, monthlyAsset, savingsAmount, investAmount } = useMemo(() => {
-    const income = monthItems
+    const monthItemsWithCategory = monthItems.map((item) => ({
+      ...item,
+      category: categoryMap.get(item.categoryId) ?? { name: '', expenseKind: 'NORMAL' as ExpenseCategoryKind },
+    }));
+    const isInvestPnlItem = (item: (typeof monthItemsWithCategory)[number]) =>
+      (item.type === 'INCOME' && item.category.name === '투자 수익') ||
+      (item.type === 'EXPENSE' && item.category.name === '투자 손실');
+
+    const income = monthItemsWithCategory
       .filter((item) => item.type === 'INCOME')
+      .filter((item) => !isInvestPnlItem(item))
       .reduce((sum, item) => sum + item.amount, 0);
-    const expenseItems = monthItems
+    const expenseItems = monthItemsWithCategory
       .filter((item) => item.type === 'EXPENSE')
-      .map((item) => ({
-        ...item,
-        category: categoryMap.get(item.categoryId) ?? { name: '', expenseKind: 'NORMAL' as ExpenseCategoryKind },
-      }));
+      .filter((item) => !isInvestPnlItem(item));
     const expense = expenseItems.reduce((sum, item) => sum + item.amount, 0);
     const savings = expenseItems
       .filter((item) => {

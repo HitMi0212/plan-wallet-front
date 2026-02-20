@@ -22,9 +22,12 @@ interface LocalTransaction extends Transaction {
 }
 
 export type AssetFlowType = 'SAVINGS' | 'INVEST';
+export type AssetFlowCurrency = 'KRW' | 'USD';
+export type AssetFlowRecordKind = 'DEPOSIT' | 'PNL';
 
 export interface AssetFlowRecord {
   id: number;
+  kind?: AssetFlowRecordKind;
   amount: number;
   occurredAt: string;
   memo: string | null;
@@ -34,6 +37,7 @@ export interface AssetFlowRecord {
 export interface AssetFlowAccount {
   id: number;
   type: AssetFlowType;
+  currency?: AssetFlowCurrency;
   bankName: string;
   productName: string;
   records: AssetFlowRecord[];
@@ -91,7 +95,23 @@ function toPublicTransaction(item: LocalTransaction): Transaction {
 
 function toPublicAssetFlowAccount(item: LocalAssetFlowAccount): AssetFlowAccount {
   const { userId, ...account } = item;
-  return account;
+  return {
+    ...account,
+    currency: account.currency ?? 'KRW',
+    records: account.records.map((record) => ({
+      ...record,
+      kind: record.kind ?? 'DEPOSIT',
+    })),
+  };
+}
+
+function ensureAssetFlowRecordKind(record: AssetFlowRecord): AssetFlowRecordKind {
+  return record.kind ?? 'DEPOSIT';
+}
+
+function composeAssetFlowDefaultMemo(account: Pick<AssetFlowAccount, 'type' | 'bankName' | 'productName'>) {
+  const head = account.type === 'SAVINGS' ? '예적금' : '투자';
+  return `${head} ${account.bankName}${account.productName ? ` ${account.productName}` : ''}`.trim();
 }
 
 function parseUserIdFromAccessToken(token: string | null): number | null {
@@ -288,15 +308,114 @@ export async function deleteLocalTransaction(userId: number, id: number): Promis
 
 export async function getLocalAssetFlowAccounts(userId: number): Promise<AssetFlowAccount[]> {
   const items = await readList<LocalAssetFlowAccount>(ASSET_FLOWS_KEY);
-  return items.filter((item) => item.userId === userId).map(toPublicAssetFlowAccount);
+  let changed = false;
+  const normalized = items.map((item) => {
+    if (!item.currency) {
+      changed = true;
+      return { ...item, currency: 'KRW' as AssetFlowCurrency };
+    }
+    return item;
+  });
+  if (changed) {
+    await writeList(ASSET_FLOWS_KEY, normalized);
+  }
+  return normalized.filter((item) => item.userId === userId).map(toPublicAssetFlowAccount);
+}
+
+function findOrCreateAssetFlowCategory(
+  userId: number,
+  categories: LocalCategory[],
+  option: {
+    type: Category['type'];
+    expenseKind: Category['expenseKind'];
+    name: string;
+    timestamp: string;
+  }
+) {
+  let category = categories.find(
+    (item) =>
+      item.userId === userId &&
+      item.type === option.type &&
+      item.name === option.name &&
+      (item.expenseKind ?? 'NORMAL') === option.expenseKind
+  );
+  if (!category) {
+    category = {
+      id: nextId(categories),
+      userId,
+      type: option.type,
+      expenseKind: option.expenseKind,
+      name: option.name,
+      createdAt: option.timestamp,
+      updatedAt: option.timestamp,
+    };
+    categories.push(category);
+  }
+  return category;
+}
+
+function resolveAssetFlowRecordToTransaction(
+  userId: number,
+  account: Pick<AssetFlowAccount, 'type' | 'bankName' | 'productName'>,
+  record: AssetFlowRecord,
+  categories: LocalCategory[],
+  timestamp: string
+) {
+  const kind = ensureAssetFlowRecordKind(record);
+  const memoBase = record.memo?.trim() || composeAssetFlowDefaultMemo(account);
+
+  if (kind === 'PNL' && account.type === 'INVEST') {
+    if (record.amount >= 0) {
+      const incomeCategory = findOrCreateAssetFlowCategory(userId, categories, {
+        type: 'INCOME',
+        expenseKind: 'NORMAL',
+        name: '투자 수익',
+        timestamp,
+      });
+      return {
+        type: 'INCOME' as const,
+        amount: record.amount,
+        categoryId: incomeCategory.id,
+        memo: record.memo?.trim() || `[투자 손익] ${memoBase}`,
+      };
+    }
+    const lossCategory = findOrCreateAssetFlowCategory(userId, categories, {
+      type: 'EXPENSE',
+      expenseKind: 'INVEST',
+      name: '투자 손실',
+      timestamp,
+    });
+    return {
+      type: 'EXPENSE' as const,
+      amount: Math.abs(record.amount),
+      categoryId: lossCategory.id,
+      memo: record.memo?.trim() || `[투자 손익] ${memoBase}`,
+    };
+  }
+
+  const expenseKind = account.type === 'SAVINGS' ? 'SAVINGS' : 'INVEST';
+  const expenseCategory = findOrCreateAssetFlowCategory(userId, categories, {
+    type: 'EXPENSE',
+    expenseKind,
+    name: account.type === 'SAVINGS' ? '예적금' : '투자',
+    timestamp,
+  });
+
+  return {
+    type: 'EXPENSE' as const,
+    amount: Math.abs(record.amount),
+    categoryId: expenseCategory.id,
+    memo: record.memo?.trim() || `[${account.type === 'SAVINGS' ? '예적금' : '투자'}] ${memoBase}`,
+  };
 }
 
 export async function createLocalAssetFlowAccount(
   userId: number,
   payload: {
     type: AssetFlowType;
+    currency?: AssetFlowCurrency;
     bankName: string;
-    productName: string;
+    productName?: string;
     amount: number;
     occurredAt: string;
     memo?: string | null;
@@ -312,11 +431,13 @@ export async function createLocalAssetFlowAccount(
     id: nextId(items),
     userId,
     type: payload.type,
+    currency: payload.type === 'INVEST' ? payload.currency ?? 'KRW' : 'KRW',
     bankName: payload.bankName.trim(),
-    productName: payload.productName.trim(),
+    productName: payload.productName?.trim() ?? '',
     records: [
       {
         id: 1,
+        kind: 'DEPOSIT',
         amount: payload.amount,
         occurredAt: payload.occurredAt,
         memo: payload.memo?.trim() || null,
@@ -328,32 +449,15 @@ export async function createLocalAssetFlowAccount(
   };
 
   items.push(created);
-  const expenseKind = payload.type === 'SAVINGS' ? 'SAVINGS' : 'INVEST';
-  let category = categories.find(
-    (item) => item.userId === userId && item.type === 'EXPENSE' && (item.expenseKind ?? 'NORMAL') === expenseKind
-  );
-  if (!category) {
-    category = {
-      id: nextId(categories),
-      userId,
-      type: 'EXPENSE',
-      expenseKind,
-      name: payload.type === 'SAVINGS' ? '예적금' : '투자',
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    };
-    categories.push(category);
-  }
+  const mapped = resolveAssetFlowRecordToTransaction(userId, created, created.records[0], categories, timestamp);
 
   transactions.push({
     id: transactionId,
     userId,
-    type: 'EXPENSE',
-    amount: payload.amount,
-    categoryId: category.id,
-    memo:
-      payload.memo?.trim() ||
-      `[${payload.type === 'SAVINGS' ? '예적금' : '투자'}] ${payload.bankName.trim()} ${payload.productName.trim()}`,
+    type: mapped.type,
+    amount: mapped.amount,
+    categoryId: mapped.categoryId,
+    memo: mapped.memo,
     occurredAt: payload.occurredAt,
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -369,6 +473,7 @@ export async function addLocalAssetFlowRecord(
   userId: number,
   accountId: number,
   payload: {
+    kind?: AssetFlowRecordKind;
     amount: number;
     occurredAt: string;
     memo?: string | null;
@@ -384,41 +489,26 @@ export async function addLocalAssetFlowRecord(
 
   const nextRecordId = nextId(target.records);
   const transactionId = nextId(transactions);
-  target.records.push({
+  const createdRecord: AssetFlowRecord = {
     id: nextRecordId,
+    kind: payload.kind ?? 'DEPOSIT',
     amount: payload.amount,
     occurredAt: payload.occurredAt,
     memo: payload.memo?.trim() || null,
     transactionId,
-  });
+  };
+  target.records.push(createdRecord);
   target.updatedAt = nowIso();
 
-  const expenseKind = target.type === 'SAVINGS' ? 'SAVINGS' : 'INVEST';
-  let category = categories.find(
-    (item) => item.userId === userId && item.type === 'EXPENSE' && (item.expenseKind ?? 'NORMAL') === expenseKind
-  );
-  if (!category) {
-    category = {
-      id: nextId(categories),
-      userId,
-      type: 'EXPENSE',
-      expenseKind,
-      name: target.type === 'SAVINGS' ? '예적금' : '투자',
-      createdAt: target.updatedAt,
-      updatedAt: target.updatedAt,
-    };
-    categories.push(category);
-  }
+  const mapped = resolveAssetFlowRecordToTransaction(userId, target, createdRecord, categories, target.updatedAt);
 
   transactions.push({
     id: transactionId,
     userId,
-    type: 'EXPENSE',
-    amount: payload.amount,
-    categoryId: category.id,
-    memo:
-      payload.memo?.trim() ||
-      `[${target.type === 'SAVINGS' ? '예적금' : '투자'}] ${target.bankName} ${target.productName}`,
+    type: mapped.type,
+    amount: mapped.amount,
+    categoryId: mapped.categoryId,
+    memo: mapped.memo,
     occurredAt: payload.occurredAt,
     createdAt: target.updatedAt,
     updatedAt: target.updatedAt,
@@ -436,32 +526,14 @@ export async function syncLocalAssetFlowToTransactions(userId: number): Promise<
   const transactions = await readList<LocalTransaction>(TRANSACTIONS_KEY);
   let changed = false;
 
-  const getOrCreateCategory = (type: AssetFlowType, timestamp: string) => {
-    const expenseKind = type === 'SAVINGS' ? 'SAVINGS' : 'INVEST';
-    let category = categories.find(
-      (item) => item.userId === userId && item.type === 'EXPENSE' && (item.expenseKind ?? 'NORMAL') === expenseKind
-    );
-    if (!category) {
-      category = {
-        id: nextId(categories),
-        userId,
-        type: 'EXPENSE',
-        expenseKind,
-        name: type === 'SAVINGS' ? '예적금' : '투자',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      };
-      categories.push(category);
-      changed = true;
-    }
-    return category;
-  };
-
   items
     .filter((account) => account.userId === userId)
     .forEach((account) => {
-      const category = getOrCreateCategory(account.type, account.updatedAt);
       account.records.forEach((record) => {
+        if (!record.kind) {
+          record.kind = 'DEPOSIT';
+          changed = true;
+        }
         const linked = record.transactionId
           ? transactions.find((txn) => txn.userId === userId && txn.id === record.transactionId)
           : null;
@@ -470,15 +542,14 @@ export async function syncLocalAssetFlowToTransactions(userId: number): Promise<
         }
         const createdAt = nowIso();
         const txId = nextId(transactions);
+        const mapped = resolveAssetFlowRecordToTransaction(userId, account, record, categories, createdAt);
         transactions.push({
           id: txId,
           userId,
-          type: 'EXPENSE',
-          amount: record.amount,
-          categoryId: category.id,
-          memo:
-            record.memo?.trim() ||
-            `[${account.type === 'SAVINGS' ? '예적금' : '투자'}] ${account.bankName} ${account.productName}`,
+          type: mapped.type,
+          amount: mapped.amount,
+          categoryId: mapped.categoryId,
+          memo: mapped.memo,
           occurredAt: record.occurredAt,
           createdAt,
           updatedAt: createdAt,
@@ -498,7 +569,7 @@ export async function updateLocalAssetFlowRecord(
   userId: number,
   accountId: number,
   recordId: number,
-  payload: { amount: number; occurredAt: string; memo?: string | null }
+  payload: { kind?: AssetFlowRecordKind; amount: number; occurredAt: string; memo?: string | null }
 ): Promise<AssetFlowAccount> {
   const items = await readList<LocalAssetFlowAccount>(ASSET_FLOWS_KEY);
   const categories = await readList<LocalCategory>(CATEGORIES_KEY);
@@ -509,27 +580,12 @@ export async function updateLocalAssetFlowRecord(
   const record = account.records.find((item) => item.id === recordId);
   if (!record) throw new Error('ASSET_RECORD_NOT_FOUND');
 
+  record.kind = payload.kind ?? record.kind ?? 'DEPOSIT';
   record.amount = payload.amount;
   record.occurredAt = payload.occurredAt;
   record.memo = payload.memo?.trim() || null;
   account.updatedAt = nowIso();
-
-  const expenseKind = account.type === 'SAVINGS' ? 'SAVINGS' : 'INVEST';
-  let category = categories.find(
-    (item) => item.userId === userId && item.type === 'EXPENSE' && (item.expenseKind ?? 'NORMAL') === expenseKind
-  );
-  if (!category) {
-    category = {
-      id: nextId(categories),
-      userId,
-      type: 'EXPENSE',
-      expenseKind,
-      name: account.type === 'SAVINGS' ? '예적금' : '투자',
-      createdAt: account.updatedAt,
-      updatedAt: account.updatedAt,
-    };
-    categories.push(category);
-  }
+  const mapped = resolveAssetFlowRecordToTransaction(userId, account, record, categories, account.updatedAt);
 
   let txn = record.transactionId
     ? transactions.find((item) => item.userId === userId && item.id === record.transactionId)
@@ -539,12 +595,10 @@ export async function updateLocalAssetFlowRecord(
     txn = {
       id: txId,
       userId,
-      type: 'EXPENSE',
-      amount: payload.amount,
-      categoryId: category.id,
-      memo:
-        record.memo?.trim() ||
-        `[${account.type === 'SAVINGS' ? '예적금' : '투자'}] ${account.bankName} ${account.productName}`,
+      type: mapped.type,
+      amount: mapped.amount,
+      categoryId: mapped.categoryId,
+      memo: mapped.memo,
       occurredAt: payload.occurredAt,
       createdAt: account.updatedAt,
       updatedAt: account.updatedAt,
@@ -552,12 +606,11 @@ export async function updateLocalAssetFlowRecord(
     transactions.push(txn);
     record.transactionId = txId;
   } else {
-    txn.amount = payload.amount;
+    txn.type = mapped.type;
+    txn.amount = mapped.amount;
     txn.occurredAt = payload.occurredAt;
-    txn.categoryId = category.id;
-    txn.memo =
-      record.memo?.trim() ||
-      `[${account.type === 'SAVINGS' ? '예적금' : '투자'}] ${account.bankName} ${account.productName}`;
+    txn.categoryId = mapped.categoryId;
+    txn.memo = mapped.memo;
     txn.updatedAt = account.updatedAt;
   }
 
@@ -597,8 +650,9 @@ export async function updateLocalAssetFlowAccount(
   accountId: number,
   payload: {
     type: AssetFlowType;
+    currency?: AssetFlowCurrency;
     bankName: string;
-    productName: string;
+    productName?: string;
   }
 ): Promise<AssetFlowAccount> {
   const items = await readList<LocalAssetFlowAccount>(ASSET_FLOWS_KEY);
@@ -608,35 +662,20 @@ export async function updateLocalAssetFlowAccount(
   if (!account) throw new Error('ASSET_ACCOUNT_NOT_FOUND');
 
   account.type = payload.type;
+  account.currency = payload.type === 'INVEST' ? payload.currency ?? account.currency ?? 'KRW' : 'KRW';
   account.bankName = payload.bankName.trim();
-  account.productName = payload.productName.trim();
+  account.productName = payload.productName?.trim() ?? '';
   account.updatedAt = nowIso();
-
-  const expenseKind = account.type === 'SAVINGS' ? 'SAVINGS' : 'INVEST';
-  let category = categories.find(
-    (item) => item.userId === userId && item.type === 'EXPENSE' && (item.expenseKind ?? 'NORMAL') === expenseKind
-  );
-  if (!category) {
-    category = {
-      id: nextId(categories),
-      userId,
-      type: 'EXPENSE',
-      expenseKind,
-      name: account.type === 'SAVINGS' ? '예적금' : '투자',
-      createdAt: account.updatedAt,
-      updatedAt: account.updatedAt,
-    };
-    categories.push(category);
-  }
 
   account.records.forEach((record) => {
     if (!record.transactionId) return;
     const txn = transactions.find((item) => item.userId === userId && item.id === record.transactionId);
     if (!txn) return;
-    txn.categoryId = category.id;
-    txn.memo =
-      record.memo?.trim() ||
-      `[${account.type === 'SAVINGS' ? '예적금' : '투자'}] ${account.bankName} ${account.productName}`;
+    const mapped = resolveAssetFlowRecordToTransaction(userId, account, record, categories, account.updatedAt);
+    txn.type = mapped.type;
+    txn.amount = mapped.amount;
+    txn.categoryId = mapped.categoryId;
+    txn.memo = mapped.memo;
     txn.updatedAt = account.updatedAt;
   });
 
