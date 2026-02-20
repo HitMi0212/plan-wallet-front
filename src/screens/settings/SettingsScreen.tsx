@@ -154,6 +154,11 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
     gap: 8,
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
   sectionTitle: {
     fontSize: 16,

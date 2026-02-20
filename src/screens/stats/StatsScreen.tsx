@@ -291,6 +291,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#e2e8f0',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
   sectionTitle: {
     fontSize: 16,
@@ -326,6 +331,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e2e8f0',
     backgroundColor: '#f8fafc',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 1,
   },
   maxExpenseDate: {
     fontSize: 13,

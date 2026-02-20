@@ -161,6 +161,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
     borderRadius: 14,
     padding: 16,
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
   },
   title: {
     color: '#cbd5e1',
@@ -180,6 +185,11 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
     padding: 14,
     gap: 4,
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
   label: {
     color: '#64748b',

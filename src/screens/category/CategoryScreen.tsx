@@ -291,6 +291,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
   itemName: {
     fontSize: 16,
@@ -337,6 +342,11 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
     padding: 16,
     maxHeight: '90%',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 5,
   },
   modalContentContainer: {
     paddingBottom: 4,
