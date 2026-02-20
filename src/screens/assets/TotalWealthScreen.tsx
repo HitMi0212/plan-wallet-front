@@ -6,61 +6,71 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { fetchUsdKrwRate } from '../../services/exchangeRateApi';
 import {
   getLocalAssetFlowAccounts,
-  getLocalAssetFlowDepositTransactionIds,
   requireAuthenticatedUserId,
 } from '../../services/localDb';
-import { useCategoryStore } from '../../stores/categoryStore';
 import { useTransactionStore } from '../../stores/transactionStore';
 
 export function TotalWealthScreen() {
   const { items, load } = useTransactionStore();
-  const categories = useCategoryStore((state) => state.items);
-  const loadCategories = useCategoryStore((state) => state.load);
   const [assetCurrentTotal, setAssetCurrentTotal] = useState(0);
+  const [savingsCurrentTotal, setSavingsCurrentTotal] = useState(0);
+  const [investCurrentTotal, setInvestCurrentTotal] = useState(0);
   const [depositTransactionIdSet, setDepositTransactionIdSet] = useState<Set<number>>(new Set());
+  const [savingsDepositTransactionIdSet, setSavingsDepositTransactionIdSet] = useState<Set<number>>(new Set());
+  const [investDepositTransactionIdSet, setInvestDepositTransactionIdSet] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     load();
   }, [load]);
 
-  useEffect(() => {
-    if (categories.length === 0) {
-      loadCategories();
-    }
-  }, [categories.length, loadCategories]);
-
   useFocusEffect(
     React.useCallback(() => {
       load();
-      loadCategories();
       (async () => {
         const userId = await requireAuthenticatedUserId();
-        const [accounts, usdKrwRate, depositTransactionIds] = await Promise.all([
+        const [accounts, usdKrwRate] = await Promise.all([
           getLocalAssetFlowAccounts(userId),
           fetchUsdKrwRate().catch(() => null),
-          getLocalAssetFlowDepositTransactionIds(userId),
         ]);
+        let savingsTotal = 0;
+        let investTotal = 0;
         const total = accounts.reduce((sum, account) => {
           const accountTotal = account.records.reduce((recordSum, record) => recordSum + record.amount, 0);
+          const accountTotalInKrw =
+            (account.currency ?? 'KRW') === 'USD'
+              ? Math.trunc(accountTotal * (usdKrwRate ?? 0))
+              : accountTotal;
+          if (account.type === 'SAVINGS') {
+            savingsTotal += accountTotalInKrw;
+          } else if (account.type === 'INVEST') {
+            investTotal += accountTotalInKrw;
+          }
           if ((account.currency ?? 'KRW') === 'USD') {
             return sum + Math.trunc(accountTotal * (usdKrwRate ?? 0));
           }
           return sum + accountTotal;
         }, 0);
+        const depositIds = new Set<number>();
+        const savingsIds = new Set<number>();
+        const investIds = new Set<number>();
+        accounts.forEach((account) => {
+          account.records.forEach((record) => {
+            const kind = record.kind ?? 'DEPOSIT';
+            if (kind !== 'DEPOSIT' || typeof record.transactionId !== 'number') return;
+            depositIds.add(record.transactionId);
+            if (account.type === 'SAVINGS') savingsIds.add(record.transactionId);
+            if (account.type === 'INVEST') investIds.add(record.transactionId);
+          });
+        });
         setAssetCurrentTotal(Math.trunc(total));
-        setDepositTransactionIdSet(new Set(depositTransactionIds));
+        setSavingsCurrentTotal(Math.trunc(savingsTotal));
+        setInvestCurrentTotal(Math.trunc(investTotal));
+        setDepositTransactionIdSet(depositIds);
+        setSavingsDepositTransactionIdSet(savingsIds);
+        setInvestDepositTransactionIdSet(investIds);
       })();
-    }, [load, loadCategories])
+    }, [load])
   );
-
-  const categoryMap = useMemo(() => {
-    return new Map(
-      categories.map((category) => [
-        category.id,
-        { name: category.name, expenseKind: category.expenseKind ?? 'NORMAL' as const },
-      ])
-    );
-  }, [categories]);
 
   const currentYear = dayjs().year();
   const yearItems = useMemo(
@@ -78,11 +88,11 @@ export function TotalWealthScreen() {
 
     const savingsExpense = yearItems
       .filter((item) => item.type === 'EXPENSE')
-      .filter((item) => categoryMap.get(item.categoryId)?.expenseKind === 'SAVINGS')
+      .filter((item) => savingsDepositTransactionIdSet.has(item.id))
       .reduce((sum, item) => sum + item.amount, 0);
     const investExpense = yearItems
       .filter((item) => item.type === 'EXPENSE')
-      .filter((item) => categoryMap.get(item.categoryId)?.expenseKind === 'INVEST')
+      .filter((item) => investDepositTransactionIdSet.has(item.id))
       .reduce((sum, item) => sum + item.amount, 0);
     const depositExpenseExcluded = yearItems
       .filter((item) => item.type === 'EXPENSE')
@@ -96,7 +106,13 @@ export function TotalWealthScreen() {
       investExpense,
       depositExpenseExcluded,
     };
-  }, [yearItems, categoryMap, assetCurrentTotal, depositTransactionIdSet]);
+  }, [
+    yearItems,
+    assetCurrentTotal,
+    depositTransactionIdSet,
+    savingsDepositTransactionIdSet,
+    investDepositTransactionIdSet,
+  ]);
 
   const thisMonth = dayjs().startOf('month');
   const monthNet = useMemo(() => {
@@ -109,20 +125,20 @@ export function TotalWealthScreen() {
       .reduce((sum, item) => sum + item.amount, 0);
     const normalExpense = monthItems
       .filter((item) => item.type === 'EXPENSE')
-      .filter((item) => {
-        const kind = categoryMap.get(item.categoryId)?.expenseKind ?? 'NORMAL';
-        return kind === 'NORMAL';
-      })
+      .filter((item) => !depositTransactionIdSet.has(item.id))
       .reduce((sum, item) => sum + item.amount, 0);
 
     return income - normalExpense;
-  }, [items, categoryMap, thisMonth]);
+  }, [items, thisMonth, depositTransactionIdSet]);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.mainCard}>
         <Text style={styles.title}>총 재산</Text>
         <Text style={styles.value}>{totals.netWealth.toLocaleString()}원</Text>
+        <Text style={styles.assetFlowText}>
+          예적금 {savingsCurrentTotal.toLocaleString()}원 · 투자 {investCurrentTotal.toLocaleString()}원
+        </Text>
       </View>
 
       <View style={styles.card}>
@@ -177,6 +193,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 32,
     fontWeight: '900',
+  },
+  assetFlowText: {
+    color: '#16a34a',
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 6,
   },
   card: {
     backgroundColor: '#fff',
