@@ -124,10 +124,15 @@ export function HomeScreen({ navigation }: { navigation: any }) {
 
   const todayItems = useMemo(() => {
     const today = dayjs().format('YYYY-MM-DD');
+    const isInvestPnlItem = (categoryId: number, type: TransactionType) => {
+      const categoryName = categoryMap.get(categoryId)?.name ?? '';
+      return (type === 'INCOME' && categoryName === '투자 수익') || (type === 'EXPENSE' && categoryName === '투자 손실');
+    };
     return items
       .filter((item) => dayjs(item.occurredAt).format('YYYY-MM-DD') === today)
+      .filter((item) => !isInvestPnlItem(item.categoryId, item.type))
       .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
-  }, [items]);
+  }, [items, categoryMap]);
   const detailItems = useMemo(() => {
     return monthItems
       .filter((item) => item.type === detailModalType)
@@ -139,9 +144,6 @@ export function HomeScreen({ navigation }: { navigation: any }) {
     selectedMonth.year() === dayjs().year() && selectedMonth.month() === dayjs().month();
   const heroLabel = isCurrentMonth ? '현재 자산(이번달)' : `${selectedMonth.month() + 1}월 소비 총 합`;
   const heroValue = isCurrentMonth ? monthlyAsset : -expenseTotal;
-  const heroSub = isCurrentMonth
-    ? `${monthLabel} 수입 - 전체지출(예적금/투자 포함)`
-    : `${monthLabel} 지출 합계`;
   const categoryUsageCountMap = useMemo(() => {
     const map = new Map<number, number>();
     items.forEach((item) => {
@@ -296,7 +298,6 @@ export function HomeScreen({ navigation }: { navigation: any }) {
         {savingsAmount > 0 || investAmount > 0 ? (
           <Text style={styles.savingsText}>예적금 {savingsAmount.toLocaleString()}원 · 투자 {investAmount.toLocaleString()}원</Text>
         ) : null}
-        <Text style={styles.heroSub}>{heroSub}</Text>
       </View>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -594,11 +595,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 34,
     fontWeight: '900',
-  },
-  heroSub: {
-    color: '#94a3b8',
-    fontSize: 12,
-    marginTop: 6,
   },
   savingsText: {
     color: '#86efac',
