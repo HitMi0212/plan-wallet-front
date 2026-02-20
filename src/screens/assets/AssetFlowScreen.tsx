@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   investText: {
-    color: '#0369a1',
+    color: '#0f172a',
     fontSize: 16,
     fontWeight: '800',
   },
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   itemAmountInvest: {
-    color: '#0369a1',
+    color: '#0f172a',
     fontWeight: '800',
     fontSize: 16,
   },

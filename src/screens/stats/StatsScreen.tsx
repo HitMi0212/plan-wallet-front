@@ -168,8 +168,12 @@ export function StatsScreen() {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>{year}년 {month}월 최대 지출일</Text>
           <View style={styles.monthSummaryRow}>
-            <Text style={styles.incomeSummaryText}>수입 {monthly.incomeTotal.toLocaleString()}원</Text>
-            <Text style={styles.expenseSummaryText}>지출 {monthly.expenseTotal.toLocaleString()}원</Text>
+            <Text style={styles.summaryText}>
+              수입 <Text style={styles.incomeSummaryAmount}>{monthly.incomeTotal.toLocaleString()}원</Text>
+            </Text>
+            <Text style={styles.summaryText}>
+              지출 <Text style={styles.expenseSummaryAmount}>{monthly.expenseTotal.toLocaleString()}원</Text>
+            </Text>
           </View>
           {maxExpenseDaySummary ? (
             <View style={styles.maxExpenseCard}>
@@ -180,7 +184,9 @@ export function StatsScreen() {
                   <Text style={styles.maxExpenseAmount}>{item.categoryAmount.toLocaleString()}원</Text>
                 </View>
               ))}
-              <Text style={styles.maxExpenseTotal}>당일 총 지출 {maxExpenseDaySummary.total.toLocaleString()}원</Text>
+              <Text style={styles.maxExpenseTotal}>
+                당일 총 지출 <Text style={styles.expenseSummaryAmount}>{maxExpenseDaySummary.total.toLocaleString()}원</Text>
+              </Text>
             </View>
           ) : (
             <Text style={styles.helperText}>선택한 달의 지출 내역이 없습니다.</Text>
@@ -296,15 +302,18 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 8,
   },
-  incomeSummaryText: {
-    color: '#15803d',
-    fontWeight: '800',
+  summaryText: {
+    color: '#334155',
+    fontWeight: '700',
     fontSize: 14,
   },
-  expenseSummaryText: {
-    color: '#b91c1c',
+  incomeSummaryAmount: {
+    color: '#dc2626',
     fontWeight: '800',
-    fontSize: 14,
+  },
+  expenseSummaryAmount: {
+    color: '#2563eb',
+    fontWeight: '800',
   },
   helperText: {
     fontSize: 13,
@@ -337,7 +346,7 @@ const styles = StyleSheet.create({
   },
   maxExpenseAmount: {
     fontSize: 13,
-    color: '#b91c1c',
+    color: '#2563eb',
     fontWeight: '700',
     marginBottom: 2,
   },
@@ -365,7 +374,7 @@ const styles = StyleSheet.create({
   },
   categoryAmount: {
     fontSize: 14,
-    color: '#b91c1c',
+    color: '#2563eb',
     fontWeight: '800',
   },
   compareRow: {

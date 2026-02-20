@@ -1,8 +1,9 @@
 import dayjs from 'dayjs';
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { getLocalAssetFlowDepositTransactionIds, requireAuthenticatedUserId } from '../../services/localDb';
 import { useCategoryStore } from '../../stores/categoryStore';
 import { useTransactionStore } from '../../stores/transactionStore';
 
@@ -10,6 +11,7 @@ export function TotalWealthScreen() {
   const { items, load } = useTransactionStore();
   const categories = useCategoryStore((state) => state.items);
   const loadCategories = useCategoryStore((state) => state.load);
+  const [depositTransactionIdSet, setDepositTransactionIdSet] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     load();
@@ -25,6 +27,11 @@ export function TotalWealthScreen() {
     React.useCallback(() => {
       load();
       loadCategories();
+      (async () => {
+        const userId = await requireAuthenticatedUserId();
+        const depositIds = await getLocalAssetFlowDepositTransactionIds(userId);
+        setDepositTransactionIdSet(new Set(depositIds));
+      })();
     }, [load, loadCategories])
   );
 
@@ -59,15 +66,20 @@ export function TotalWealthScreen() {
       .filter((item) => item.type === 'EXPENSE')
       .filter((item) => categoryMap.get(item.categoryId)?.expenseKind === 'INVEST')
       .reduce((sum, item) => sum + item.amount, 0);
+    const depositExpenseExcluded = yearItems
+      .filter((item) => item.type === 'EXPENSE')
+      .filter((item) => depositTransactionIdSet.has(item.id))
+      .reduce((sum, item) => sum + item.amount, 0);
 
     return {
       totalIncome,
       totalExpense,
-      netWealth: totalIncome - totalExpense,
+      netWealth: totalIncome - (totalExpense - depositExpenseExcluded),
       savingsExpense,
       investExpense,
+      depositExpenseExcluded,
     };
-  }, [yearItems, categoryMap]);
+  }, [yearItems, categoryMap, depositTransactionIdSet]);
 
   const thisMonth = dayjs().startOf('month');
   const monthNet = useMemo(() => {
@@ -94,14 +106,16 @@ export function TotalWealthScreen() {
       <View style={styles.mainCard}>
         <Text style={styles.title}>총 재산</Text>
         <Text style={styles.value}>{totals.netWealth.toLocaleString()}원</Text>
-        <Text style={styles.sub}>{currentYear}년 수입 - 지출</Text>
+        <Text style={styles.sub}>{currentYear}년 수입 - 지출 + 예적금/투자 자산</Text>
       </View>
 
       <View style={styles.card}>
         <Text style={styles.label}>{currentYear}년 수입</Text>
         <Text style={styles.income}>{totals.totalIncome.toLocaleString()}원</Text>
-        <Text style={styles.label}>{currentYear}년 지출</Text>
-        <Text style={styles.expense}>{totals.totalExpense.toLocaleString()}원</Text>
+        <Text style={styles.label}>{currentYear}년 지출(입금 제외)</Text>
+        <Text style={styles.expense}>{(totals.totalExpense - totals.depositExpenseExcluded).toLocaleString()}원</Text>
+        <Text style={styles.label}>{currentYear}년 예적금/투자 자산(+)</Text>
+        <Text style={styles.income}>{totals.depositExpenseExcluded.toLocaleString()}원</Text>
       </View>
 
       <View style={styles.card}>
@@ -164,18 +178,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   income: {
-    color: '#15803d',
+    color: '#dc2626',
     fontSize: 18,
     fontWeight: '800',
     marginBottom: 4,
   },
   expense: {
-    color: '#b91c1c',
+    color: '#2563eb',
     fontSize: 18,
     fontWeight: '800',
   },
   savings: {
-    color: '#15803d',
+    color: '#2563eb',
     fontSize: 16,
     fontWeight: '800',
     marginBottom: 4,

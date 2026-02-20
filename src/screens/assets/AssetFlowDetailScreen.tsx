@@ -622,10 +622,10 @@ const styles = StyleSheet.create({
     color: '#0f172a',
   },
   recordPnlPlus: {
-    color: '#15803d',
+    color: '#dc2626',
   },
   recordPnlMinus: {
-    color: '#b91c1c',
+    color: '#2563eb',
   },
   helperText: {
     fontSize: 13,

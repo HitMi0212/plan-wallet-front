@@ -315,9 +315,15 @@ export function HomeScreen({ navigation }: { navigation: any }) {
         >
           <Text style={styles.statLabel}>지출</Text>
           <Text style={[styles.statValue, styles.expenseText]}>{expenseTotal.toLocaleString()}원</Text>
-          <Text style={styles.expenseSubText}>일반 지출 {normalExpense.toLocaleString()}원</Text>
-          <Text style={styles.expenseSubText}>예적금 {savingsAmount.toLocaleString()}원</Text>
-          <Text style={styles.expenseSubText}>투자 {investAmount.toLocaleString()}원</Text>
+          <Text style={styles.expenseSubText}>
+            일반 지출 <Text style={styles.expenseSubAmount}>{normalExpense.toLocaleString()}원</Text>
+          </Text>
+          <Text style={styles.expenseSubText}>
+            예적금 <Text style={styles.expenseSubAmount}>{savingsAmount.toLocaleString()}원</Text>
+          </Text>
+          <Text style={styles.expenseSubText}>
+            투자 <Text style={styles.expenseSubAmount}>{investAmount.toLocaleString()}원</Text>
+          </Text>
         </Pressable>
       </View>
 
@@ -613,12 +619,12 @@ const styles = StyleSheet.create({
   incomeCard: {
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#bbf7d0',
+    borderColor: '#fecaca',
   },
   expenseCard: {
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#fecdd3',
+    borderColor: '#bfdbfe',
   },
   statLabel: {
     fontSize: 13,
@@ -631,16 +637,20 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   incomeText: {
-    color: '#15803d',
+    color: '#dc2626',
   },
   expenseText: {
-    color: '#b91c1c',
+    color: '#2563eb',
   },
   expenseSubText: {
-    color: '#7f1d1d',
+    color: '#334155',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
     marginTop: 4,
+  },
+  expenseSubAmount: {
+    color: '#2563eb',
+    fontWeight: '700',
   },
   helperText: {
     color: '#64748b',
@@ -693,11 +703,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   monthItemIncome: {
-    color: '#15803d',
+    color: '#dc2626',
     fontWeight: '800',
   },
   monthItemExpense: {
-    color: '#b91c1c',
+    color: '#2563eb',
     fontWeight: '800',
   },
   categoryTotalWrap: {
@@ -718,11 +728,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   categoryTotalIncome: {
-    color: '#15803d',
+    color: '#dc2626',
     fontWeight: '800',
   },
   categoryTotalExpense: {
-    color: '#b91c1c',
+    color: '#2563eb',
     fontWeight: '800',
   },
   inlineAddButton: {
@@ -811,11 +821,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   detailIncome: {
-    color: '#15803d',
+    color: '#dc2626',
     fontWeight: '800',
   },
   detailExpense: {
-    color: '#b91c1c',
+    color: '#2563eb',
     fontWeight: '800',
   },
   monthOption: {
@@ -914,23 +924,23 @@ const styles = StyleSheet.create({
   },
   categoryChipExpense: {
     backgroundColor: 'transparent',
-    borderColor: '#fecdd3',
+    borderColor: '#bfdbfe',
   },
   categoryChipIncome: {
     backgroundColor: 'transparent',
-    borderColor: '#bbf7d0',
+    borderColor: '#fecaca',
   },
   categoryChipActive: {
     borderColor: '#0f172a',
     backgroundColor: '#0f172a',
   },
   categoryChipExpenseActive: {
-    backgroundColor: '#dc2626',
-    borderColor: '#dc2626',
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
   },
   categoryChipIncomeActive: {
-    backgroundColor: '#16a34a',
-    borderColor: '#16a34a',
+    backgroundColor: '#dc2626',
+    borderColor: '#dc2626',
   },
   categoryChipText: {
     color: '#0f172a',

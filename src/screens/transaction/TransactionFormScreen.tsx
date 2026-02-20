@@ -301,20 +301,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   typeHalfExpense: {
-    borderColor: '#ef4444',
+    borderColor: '#3b82f6',
     backgroundColor: '#fff',
   },
   typeHalfIncome: {
-    borderColor: '#16a34a',
+    borderColor: '#ef4444',
     backgroundColor: '#fff',
   },
   typeHalfExpenseActive: {
-    backgroundColor: '#dc2626',
-    borderColor: '#dc2626',
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
   },
   typeHalfIncomeActive: {
-    backgroundColor: '#16a34a',
-    borderColor: '#16a34a',
+    backgroundColor: '#dc2626',
+    borderColor: '#dc2626',
   },
   typeHalfText: {
     color: '#0f172a',
@@ -349,11 +349,11 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   categorySmallExpense: {
-    borderColor: '#fecdd3',
+    borderColor: '#bfdbfe',
     backgroundColor: '#fff',
   },
   categorySmallIncome: {
-    borderColor: '#bbf7d0',
+    borderColor: '#fecaca',
     backgroundColor: '#fff',
   },
   categorySmallCardActive: {

@@ -337,6 +337,20 @@ export async function getLocalAssetFlowLinkedTransactionIds(userId: number): Pro
   return [...ids];
 }
 
+export async function getLocalAssetFlowDepositTransactionIds(userId: number): Promise<number[]> {
+  const accounts = await getLocalAssetFlowAccounts(userId);
+  const ids = new Set<number>();
+  accounts.forEach((account) => {
+    account.records.forEach((record) => {
+      const kind = ensureAssetFlowRecordKind(record);
+      if (kind === 'DEPOSIT' && typeof record.transactionId === 'number') {
+        ids.add(record.transactionId);
+      }
+    });
+  });
+  return [...ids];
+}
+
 function findOrCreateAssetFlowCategory(
   userId: number,
   categories: LocalCategory[],

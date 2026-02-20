@@ -308,9 +308,11 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
         renderItem={({ item }) => (
           <View style={styles.listItem}>
             <Pressable style={styles.itemContent} onPress={() => openDetailModal(item)}>
-              <Text style={item.type === 'EXPENSE' ? styles.itemNameExpense : styles.itemNameIncome}>
+              <Text style={styles.itemNameBase}>
                 {categoryMap.get(item.categoryId)?.name ?? `카테고리 ${item.categoryId}`}{' '}
-                {item.amount.toLocaleString()}원
+                <Text style={item.type === 'EXPENSE' ? styles.itemAmountExpense : styles.itemAmountIncome}>
+                  {item.amount.toLocaleString()}원
+                </Text>
               </Text>
               <Text style={styles.itemMeta}>
                 {dayjs(item.occurredAt).format('YYYY-MM-DD')}
@@ -476,23 +478,23 @@ const styles = StyleSheet.create({
   },
   categoryChipExpense: {
     backgroundColor: 'transparent',
-    borderColor: '#fecdd3',
+    borderColor: '#bfdbfe',
   },
   categoryChipIncome: {
     backgroundColor: 'transparent',
-    borderColor: '#bbf7d0',
+    borderColor: '#fecaca',
   },
   categoryChipActive: {
     backgroundColor: '#0f172a',
     borderColor: '#0f172a',
   },
   categoryChipExpenseActive: {
-    backgroundColor: '#dc2626',
-    borderColor: '#dc2626',
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
   },
   categoryChipIncomeActive: {
-    backgroundColor: '#16a34a',
-    borderColor: '#16a34a',
+    backgroundColor: '#dc2626',
+    borderColor: '#dc2626',
   },
   categoryChipText: {
     color: '#0f172a',
@@ -639,10 +641,10 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   dotIncome: {
-    backgroundColor: '#16a34a',
+    backgroundColor: '#dc2626',
   },
   dotExpense: {
-    backgroundColor: '#dc2626',
+    backgroundColor: '#2563eb',
   },
   listItem: {
     backgroundColor: '#fff',
@@ -659,17 +661,21 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingRight: 10,
   },
-  itemNameIncome: {
+  itemNameBase: {
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 4,
-    color: '#15803d',
+    color: '#0f172a',
   },
-  itemNameExpense: {
+  itemAmountIncome: {
     fontSize: 16,
     fontWeight: '700',
-    marginBottom: 4,
-    color: '#b91c1c',
+    color: '#dc2626',
+  },
+  itemAmountExpense: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#2563eb',
   },
   itemMeta: {
     fontSize: 12,
