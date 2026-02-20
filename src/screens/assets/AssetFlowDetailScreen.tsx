@@ -5,12 +5,14 @@ import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   Alert,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 
@@ -360,7 +362,8 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
       <Modal visible={editModalVisible} transparent animationType="slide" onRequestClose={() => setEditModalVisible(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <ScrollView contentContainerStyle={styles.modalContentContainer}>
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <ScrollView contentContainerStyle={styles.modalContentContainer} keyboardShouldPersistTaps="handled">
               <Pressable style={styles.modalCloseButton} onPress={() => setEditModalVisible(false)}>
                 <Text style={styles.modalCloseText}>X</Text>
               </Pressable>
@@ -393,6 +396,7 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
                 <PrimaryButton title="저장" onPress={handleUpdateAccount} variant="primary" />
               </View>
             </ScrollView>
+            </TouchableWithoutFeedback>
           </View>
         </View>
       </Modal>
@@ -400,7 +404,8 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
       <Modal visible={recordModalVisible} transparent animationType="slide" onRequestClose={() => setRecordModalVisible(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <ScrollView contentContainerStyle={styles.modalContentContainer}>
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <ScrollView contentContainerStyle={styles.modalContentContainer} keyboardShouldPersistTaps="handled">
               <Pressable style={styles.modalCloseButton} onPress={() => setRecordModalVisible(false)}>
                 <Text style={styles.modalCloseText}>X</Text>
               </Pressable>
@@ -447,9 +452,11 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
                 </View>
               ) : null}
               {account.type === 'INVEST' && recordInputCurrency !== (account.currency ?? 'KRW') && usdKrwRate ? (
-                <Text style={styles.rateText}>
-                  저장 시 {account.currency ?? 'KRW'} 기준으로 자동 환산됩니다. (1 USD = {usdKrwRate.toLocaleString()}원)
-                </Text>
+                <View style={styles.modalRateNotice}>
+                  <Text style={styles.modalRateNoticeText}>
+                    저장 시 {account.currency ?? 'KRW'} 기준으로 자동 환산됩니다. (1 USD = {usdKrwRate.toLocaleString()}원)
+                  </Text>
+                </View>
               ) : null}
               <TextField label="비고" value={memo} onChangeText={setMemo} placeholder="선택 입력" />
               <View style={styles.dateField}>
@@ -480,6 +487,7 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
                 ) : null}
               </View>
             </ScrollView>
+            </TouchableWithoutFeedback>
           </View>
         </View>
       </Modal>
@@ -557,6 +565,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#64748b',
+  },
+  modalRateNotice: {
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 10,
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginBottom: 12,
+  },
+  modalRateNoticeText: {
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '600',
+    color: '#475569',
   },
   actionRow: {
     flexDirection: 'row',

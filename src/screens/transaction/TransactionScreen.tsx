@@ -5,12 +5,14 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   Alert,
   FlatList,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 
@@ -18,7 +20,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { ErrorBanner } from '../../components/ErrorBanner';
 import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { TextField } from '../../components/TextField';
-import { getLocalAssetFlowLinkedTransactionIds, requireAuthenticatedUserId } from '../../services/localDb';
+import { getLocalAssetFlowAccounts, requireAuthenticatedUserId } from '../../services/localDb';
 import { Transaction, TransactionType } from '../../services/transactionApi';
 import { useCategoryStore } from '../../stores/categoryStore';
 import { useTransactionStore } from '../../stores/transactionStore';
@@ -45,6 +47,7 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
   const [detailOccurredDateInput, setDetailOccurredDateInput] = useState(dayjs().format('YYYY-MM-DD'));
   const [showDetailOccurredDateModal, setShowDetailOccurredDateModal] = useState(false);
   const [assetFlowManagedTransactionIds, setAssetFlowManagedTransactionIds] = useState<Set<number>>(new Set());
+  const [assetFlowMemoPrefixMap, setAssetFlowMemoPrefixMap] = useState<Map<number, string>>(new Map());
 
   useEffect(() => {
     load();
@@ -62,8 +65,20 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
       loadCategories();
       (async () => {
         const userId = await requireAuthenticatedUserId();
-        const ids = await getLocalAssetFlowLinkedTransactionIds(userId);
-        setAssetFlowManagedTransactionIds(new Set(ids));
+        const accounts = await getLocalAssetFlowAccounts(userId);
+        const ids = new Set<number>();
+        const prefixMap = new Map<number, string>();
+        accounts.forEach((account) => {
+          const prefix = `[${account.bankName}]`;
+          account.records.forEach((record) => {
+            if (typeof record.transactionId === 'number') {
+              ids.add(record.transactionId);
+              prefixMap.set(record.transactionId, prefix);
+            }
+          });
+        });
+        setAssetFlowManagedTransactionIds(ids);
+        setAssetFlowMemoPrefixMap(prefixMap);
       })();
     }, [load, loadCategories])
   );
@@ -72,7 +87,7 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
     () =>
       [...items]
         .filter((item) => dayjs(item.occurredAt).format('YYYY-MM-DD') === selectedDate.format('YYYY-MM-DD'))
-        .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)),
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
     [items, selectedDate]
   );
 
@@ -225,6 +240,21 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
       { text: '삭제', style: 'destructive', onPress: () => remove(id) },
     ]);
   };
+  const getDisplayMemo = (item: Transaction) => {
+    if (!item.memo) return null;
+    const prefix = assetFlowMemoPrefixMap.get(item.id);
+    if (!prefix) return item.memo;
+    if (
+      item.memo.startsWith('[예적금]') ||
+      item.memo.startsWith('[투자]') ||
+      item.memo.startsWith('[투자 손익]') ||
+      item.memo.startsWith('예적금 ') ||
+      item.memo.startsWith('투자 ')
+    ) {
+      return null;
+    }
+    return `${prefix} ${item.memo}`;
+  };
 
   return (
     <View style={styles.container}>
@@ -303,32 +333,36 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
         data={sortedItems}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={<EmptyState title="선택한 날짜의 거래가 없습니다." description="달력에서 날짜를 바꾸거나 새 거래를 추가해 보세요." />}
-        renderItem={({ item }) => (
-          <View style={styles.listItem}>
-            <Pressable style={styles.itemContent} onPress={() => openDetailModal(item)}>
-              <Text style={styles.itemNameBase}>
-                {categoryMap.get(item.categoryId)?.name ?? `카테고리 ${item.categoryId}`}{' '}
-                <Text style={item.type === 'EXPENSE' ? styles.itemAmountExpense : styles.itemAmountIncome}>
-                  {item.amount.toLocaleString()}원
+        renderItem={({ item }) => {
+          const displayMemo = getDisplayMemo(item);
+          return (
+            <View style={styles.listItem}>
+              <Pressable style={styles.itemContent} onPress={() => openDetailModal(item)}>
+                <Text style={styles.itemNameBase}>
+                  {categoryMap.get(item.categoryId)?.name ?? `카테고리 ${item.categoryId}`}{' '}
+                  <Text style={item.type === 'EXPENSE' ? styles.itemAmountExpense : styles.itemAmountIncome}>
+                    {item.amount.toLocaleString()}원
+                  </Text>
                 </Text>
-              </Text>
-              <Text style={styles.itemMeta}>
-                {dayjs(item.occurredAt).format('YYYY-MM-DD')}
-              </Text>
-              {item.memo ? <Text style={styles.itemMemo}>{item.memo}</Text> : null}
-            </Pressable>
-            {!assetFlowManagedTransactionIds.has(item.id) ? (
-              <Pressable
-                style={[styles.actionButton, styles.deleteButton, styles.inlineDeleteButton]}
-                onPress={() => handleDeleteFromList(item.id)}
-              >
-                <Text style={[styles.actionText, styles.deleteActionText]}>삭제</Text>
+                <Text style={styles.itemMeta}>
+                  {dayjs(item.occurredAt).format('YYYY-MM-DD')}
+                </Text>
+                {displayMemo ? <Text style={styles.itemMemo}>{displayMemo}</Text> : null}
               </Pressable>
-            ) : null}
-          </View>
-        )}
+              {!assetFlowManagedTransactionIds.has(item.id) ? (
+                <Pressable
+                  style={[styles.actionButton, styles.deleteButton, styles.inlineDeleteButton]}
+                  onPress={() => handleDeleteFromList(item.id)}
+                >
+                  <Text style={[styles.actionText, styles.deleteActionText]}>삭제</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          );
+        }}
       />
 
       <Modal visible={detailModalVisible} transparent animationType="fade" onRequestClose={closeDetailModal}>
@@ -341,71 +375,75 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
               </Pressable>
             </View>
             {selectedTransaction ? (
-              <View style={styles.detailRows}>
-                <View style={styles.typeRow}>
-                  {typeOptions.map((option) => (
-                    <Pressable
-                      key={option.value}
-                      style={[styles.typeChip, detailType === option.value && styles.typeChipActive]}
-                      onPress={() => setDetailType(option.value)}
-                    >
-                      <Text style={detailType === option.value ? styles.typeChipTextActive : styles.typeChipText}>
-                        {option.label}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-                <TextField label="금액" value={detailAmount} onChangeText={setDetailAmount} placeholder="예: 12000" />
-                <View style={styles.categorySection}>
-                  <Text style={styles.categoryLabel}>카테고리</Text>
-                  <View style={styles.categoryRow}>
-                    {detailCategories.map((category) => (
+              <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+                <View style={styles.detailRows}>
+                  <View style={styles.typeRow}>
+                    {typeOptions.map((option) => (
                       <Pressable
-                        key={category.id}
-                        style={[
-                          styles.categoryChip,
-                          category.type === 'EXPENSE' ? styles.categoryChipExpense : styles.categoryChipIncome,
-                          category.type === 'EXPENSE' && detailCategoryId === category.id ? styles.categoryChipExpenseActive : null,
-                          category.type === 'INCOME' && detailCategoryId === category.id ? styles.categoryChipIncomeActive : null,
-                          detailCategoryId === category.id && styles.categoryChipActive,
-                        ]}
-                        onPress={() => setDetailCategoryId(category.id)}
+                        key={option.value}
+                        style={[styles.typeChip, detailType === option.value && styles.typeChipActive]}
+                        onPress={() => setDetailType(option.value)}
                       >
                         <Text
-                          style={detailCategoryId === category.id ? styles.categoryChipTextActive : styles.categoryChipText}
+                          style={detailType === option.value ? styles.typeChipTextActive : styles.typeChipText}
                         >
-                          {category.name}
+                          {option.label}
                         </Text>
                       </Pressable>
                     ))}
                   </View>
-                  {detailCategories.length === 0 ? (
-                    <Text style={styles.helperText}>{detailType === 'EXPENSE' ? '지출' : '수입'} 카테고리를 먼저 추가해 주세요.</Text>
-                  ) : null}
+                  <TextField label="금액" value={detailAmount} onChangeText={setDetailAmount} placeholder="예: 12000" keyboardType="numeric" />
+                  <View style={styles.categorySection}>
+                    <Text style={styles.categoryLabel}>카테고리</Text>
+                    <View style={styles.categoryRow}>
+                      {detailCategories.map((category) => (
+                        <Pressable
+                          key={category.id}
+                          style={[
+                            styles.categoryChip,
+                            category.type === 'EXPENSE' ? styles.categoryChipExpense : styles.categoryChipIncome,
+                            category.type === 'EXPENSE' && detailCategoryId === category.id ? styles.categoryChipExpenseActive : null,
+                            category.type === 'INCOME' && detailCategoryId === category.id ? styles.categoryChipIncomeActive : null,
+                            detailCategoryId === category.id && styles.categoryChipActive,
+                          ]}
+                          onPress={() => setDetailCategoryId(category.id)}
+                        >
+                          <Text
+                            style={detailCategoryId === category.id ? styles.categoryChipTextActive : styles.categoryChipText}
+                          >
+                            {category.name}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                    {detailCategories.length === 0 ? (
+                      <Text style={styles.helperText}>{detailType === 'EXPENSE' ? '지출' : '수입'} 카테고리를 먼저 추가해 주세요.</Text>
+                    ) : null}
+                  </View>
+                  <TextField
+                    label="비고"
+                    value={detailMemo}
+                    onChangeText={setDetailMemo}
+                    placeholder="예: 점심"
+                    multiline
+                    numberOfLines={3}
+                  />
+                  <View style={styles.dateField}>
+                    <Text style={styles.dateFieldLabel}>발생일</Text>
+                    <Pressable style={styles.dateInputButton} onPress={() => setShowDetailOccurredDateModal(true)}>
+                      <Text style={styles.dateInputText}>{detailOccurredDateInput}</Text>
+                    </Pressable>
+                  </View>
+                  <View style={styles.detailActions}>
+                    <Pressable style={[styles.actionButton, styles.detailActionButton]} onPress={handleSaveFromDetail}>
+                      <Text style={[styles.actionText, styles.detailActionText]}>저장</Text>
+                    </Pressable>
+                    <Pressable style={[styles.actionButton, styles.deleteButton, styles.detailActionButton]} onPress={handleDeleteFromDetail}>
+                      <Text style={[styles.actionText, styles.deleteActionText, styles.detailActionText]}>삭제</Text>
+                    </Pressable>
+                  </View>
                 </View>
-                <TextField
-                  label="비고"
-                  value={detailMemo}
-                  onChangeText={setDetailMemo}
-                  placeholder="예: 점심"
-                  multiline
-                  numberOfLines={3}
-                />
-                <View style={styles.dateField}>
-                  <Text style={styles.dateFieldLabel}>발생일</Text>
-                  <Pressable style={styles.dateInputButton} onPress={() => setShowDetailOccurredDateModal(true)}>
-                    <Text style={styles.dateInputText}>{detailOccurredDateInput}</Text>
-                  </Pressable>
-                </View>
-                <View style={styles.detailActions}>
-                  <Pressable style={styles.actionButton} onPress={handleSaveFromDetail}>
-                    <Text style={styles.actionText}>저장</Text>
-                  </Pressable>
-                  <Pressable style={[styles.actionButton, styles.deleteButton]} onPress={handleDeleteFromDetail}>
-                    <Text style={[styles.actionText, styles.deleteActionText]}>삭제</Text>
-                  </Pressable>
-                </View>
-              </View>
+              </TouchableWithoutFeedback>
             ) : null}
           </Pressable>
         </Pressable>
@@ -799,5 +837,14 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     gap: 8,
     marginTop: 8,
+  },
+  detailActionButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 10,
+  },
+  detailActionText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

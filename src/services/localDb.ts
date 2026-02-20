@@ -111,11 +111,6 @@ function ensureAssetFlowRecordKind(record: AssetFlowRecord): AssetFlowRecordKind
   return record.kind ?? 'DEPOSIT';
 }
 
-function composeAssetFlowDefaultMemo(account: Pick<AssetFlowAccount, 'type' | 'bankName' | 'productName'>) {
-  const head = account.type === 'SAVINGS' ? '예적금' : '투자';
-  return `${head} ${account.bankName}${account.productName ? ` ${account.productName}` : ''}`.trim();
-}
-
 function parseUserIdFromAccessToken(token: string | null): number | null {
   if (!token || !token.startsWith(ACCESS_PREFIX)) return null;
   const idText = token.slice(ACCESS_PREFIX.length);
@@ -391,7 +386,7 @@ function resolveAssetFlowRecordToTransaction(
   timestamp: string
 ) {
   const kind = ensureAssetFlowRecordKind(record);
-  const memoBase = record.memo?.trim() || composeAssetFlowDefaultMemo(account);
+  const trimmedMemo = record.memo?.trim() || null;
   const isUsdInvest = account.type === 'INVEST' && account.currency === 'USD';
   const toKrwAmount = (value: number) => {
     if (!isUsdInvest) return Math.abs(value);
@@ -411,7 +406,7 @@ function resolveAssetFlowRecordToTransaction(
         type: 'INCOME' as const,
         amount: toKrwAmount(record.amount),
         categoryId: incomeCategory.id,
-        memo: record.memo?.trim() || `[투자 손익] ${memoBase}`,
+        memo: trimmedMemo,
       };
     }
     const lossCategory = findOrCreateAssetFlowCategory(userId, categories, {
@@ -424,7 +419,7 @@ function resolveAssetFlowRecordToTransaction(
       type: 'EXPENSE' as const,
       amount: toKrwAmount(record.amount),
       categoryId: lossCategory.id,
-      memo: record.memo?.trim() || `[투자 손익] ${memoBase}`,
+      memo: trimmedMemo,
     };
   }
 
@@ -440,7 +435,7 @@ function resolveAssetFlowRecordToTransaction(
     type: 'EXPENSE' as const,
     amount: toKrwAmount(record.amount),
     categoryId: expenseCategory.id,
-    memo: record.memo?.trim() || `[${account.type === 'SAVINGS' ? '예적금' : '투자'}] ${memoBase}`,
+    memo: trimmedMemo,
   };
 }
 

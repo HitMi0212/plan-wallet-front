@@ -165,7 +165,7 @@ export function TransactionFormScreen() {
                   <Text style={styles.dateInputText}>{occurredDateInput}</Text>
                 </Pressable>
               </View>
-              <TextField label="금액" value={amount} onChangeText={setAmount} placeholder="예: 12000" />
+              <TextField label="금액" value={amount} onChangeText={setAmount} placeholder="예: 12000" keyboardType="numeric" />
               <TextField
                 label="비고"
                 value={memo}

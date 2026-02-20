@@ -1,5 +1,5 @@
 ﻿import React from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
 
 interface TextFieldProps {
   label: string;
@@ -8,7 +8,7 @@ interface TextFieldProps {
   placeholder?: string;
   secureTextEntry?: boolean;
   errorMessage?: string;
-  keyboardType?: 'default' | 'email-address';
+  keyboardType?: TextInputProps['keyboardType'];
   multiline?: boolean;
   numberOfLines?: number;
 }
