@@ -29,6 +29,7 @@ export interface AssetFlowRecord {
   id: number;
   kind?: AssetFlowRecordKind;
   amount: number;
+  fxRate?: number;
   occurredAt: string;
   memo: string | null;
   transactionId?: number;
@@ -101,6 +102,7 @@ function toPublicAssetFlowAccount(item: LocalAssetFlowAccount): AssetFlowAccount
     records: account.records.map((record) => ({
       ...record,
       kind: record.kind ?? 'DEPOSIT',
+      fxRate: record.fxRate,
     })),
   };
 }
@@ -322,6 +324,19 @@ export async function getLocalAssetFlowAccounts(userId: number): Promise<AssetFl
   return normalized.filter((item) => item.userId === userId).map(toPublicAssetFlowAccount);
 }
 
+export async function getLocalAssetFlowLinkedTransactionIds(userId: number): Promise<number[]> {
+  const accounts = await getLocalAssetFlowAccounts(userId);
+  const ids = new Set<number>();
+  accounts.forEach((account) => {
+    account.records.forEach((record) => {
+      if (typeof record.transactionId === 'number') {
+        ids.add(record.transactionId);
+      }
+    });
+  });
+  return [...ids];
+}
+
 function findOrCreateAssetFlowCategory(
   userId: number,
   categories: LocalCategory[],
@@ -356,13 +371,19 @@ function findOrCreateAssetFlowCategory(
 
 function resolveAssetFlowRecordToTransaction(
   userId: number,
-  account: Pick<AssetFlowAccount, 'type' | 'bankName' | 'productName'>,
+  account: Pick<AssetFlowAccount, 'type' | 'currency' | 'bankName' | 'productName'>,
   record: AssetFlowRecord,
   categories: LocalCategory[],
   timestamp: string
 ) {
   const kind = ensureAssetFlowRecordKind(record);
   const memoBase = record.memo?.trim() || composeAssetFlowDefaultMemo(account);
+  const isUsdInvest = account.type === 'INVEST' && account.currency === 'USD';
+  const toKrwAmount = (value: number) => {
+    if (!isUsdInvest) return Math.abs(value);
+    const rate = record.fxRate ?? 1;
+    return Math.trunc(Math.abs(value) * rate);
+  };
 
   if (kind === 'PNL' && account.type === 'INVEST') {
     if (record.amount >= 0) {
@@ -374,7 +395,7 @@ function resolveAssetFlowRecordToTransaction(
       });
       return {
         type: 'INCOME' as const,
-        amount: record.amount,
+        amount: toKrwAmount(record.amount),
         categoryId: incomeCategory.id,
         memo: record.memo?.trim() || `[투자 손익] ${memoBase}`,
       };
@@ -387,7 +408,7 @@ function resolveAssetFlowRecordToTransaction(
     });
     return {
       type: 'EXPENSE' as const,
-      amount: Math.abs(record.amount),
+      amount: toKrwAmount(record.amount),
       categoryId: lossCategory.id,
       memo: record.memo?.trim() || `[투자 손익] ${memoBase}`,
     };
@@ -403,7 +424,7 @@ function resolveAssetFlowRecordToTransaction(
 
   return {
     type: 'EXPENSE' as const,
-    amount: Math.abs(record.amount),
+    amount: toKrwAmount(record.amount),
     categoryId: expenseCategory.id,
     memo: record.memo?.trim() || `[${account.type === 'SAVINGS' ? '예적금' : '투자'}] ${memoBase}`,
   };
@@ -417,6 +438,7 @@ export async function createLocalAssetFlowAccount(
     bankName: string;
     productName?: string;
     amount: number;
+    fxRate?: number;
     occurredAt: string;
     memo?: string | null;
   }
@@ -439,6 +461,7 @@ export async function createLocalAssetFlowAccount(
         id: 1,
         kind: 'DEPOSIT',
         amount: payload.amount,
+        fxRate: payload.fxRate,
         occurredAt: payload.occurredAt,
         memo: payload.memo?.trim() || null,
         transactionId,
@@ -475,6 +498,7 @@ export async function addLocalAssetFlowRecord(
   payload: {
     kind?: AssetFlowRecordKind;
     amount: number;
+    fxRate?: number;
     occurredAt: string;
     memo?: string | null;
   }
@@ -493,6 +517,7 @@ export async function addLocalAssetFlowRecord(
     id: nextRecordId,
     kind: payload.kind ?? 'DEPOSIT',
     amount: payload.amount,
+    fxRate: payload.fxRate,
     occurredAt: payload.occurredAt,
     memo: payload.memo?.trim() || null,
     transactionId,
@@ -569,7 +594,7 @@ export async function updateLocalAssetFlowRecord(
   userId: number,
   accountId: number,
   recordId: number,
-  payload: { kind?: AssetFlowRecordKind; amount: number; occurredAt: string; memo?: string | null }
+  payload: { kind?: AssetFlowRecordKind; amount: number; fxRate?: number; occurredAt: string; memo?: string | null }
 ): Promise<AssetFlowAccount> {
   const items = await readList<LocalAssetFlowAccount>(ASSET_FLOWS_KEY);
   const categories = await readList<LocalCategory>(CATEGORIES_KEY);
@@ -582,6 +607,7 @@ export async function updateLocalAssetFlowRecord(
 
   record.kind = payload.kind ?? record.kind ?? 'DEPOSIT';
   record.amount = payload.amount;
+  record.fxRate = payload.fxRate ?? record.fxRate;
   record.occurredAt = payload.occurredAt;
   record.memo = payload.memo?.trim() || null;
   account.updatedAt = nowIso();

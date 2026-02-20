@@ -69,6 +69,7 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
   const [recordEditId, setRecordEditId] = useState<number | null>(null);
   const [recordEntryType, setRecordEntryType] = useState<RecordEntryType>('DEPOSIT');
   const [currency, setCurrency] = useState<AssetFlowCurrency>('KRW');
+  const [recordInputCurrency, setRecordInputCurrency] = useState<AssetFlowCurrency>('KRW');
   const [bankName, setBankName] = useState('');
   const [productName, setProductName] = useState('');
   const [amount, setAmount] = useState('');
@@ -177,6 +178,7 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
   const openAddRecordModal = () => {
     setRecordEditId(null);
     setRecordEntryType('DEPOSIT');
+    setRecordInputCurrency(account?.type === 'INVEST' ? account.currency ?? 'KRW' : 'KRW');
     setAmount('');
     setMemo('');
     setOccurredAt(dayjs().toISOString());
@@ -186,6 +188,7 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
 
   const openEditRecordModal = (record: AssetFlowRecord) => {
     setRecordEditId(record.id);
+    setRecordInputCurrency(account?.type === 'INVEST' ? account.currency ?? 'KRW' : 'KRW');
     if ((record.kind ?? 'DEPOSIT') === 'PNL') {
       setRecordEntryType(record.amount >= 0 ? 'PROFIT' : 'LOSS');
       setAmount(String(Math.abs(record.amount)));
@@ -211,10 +214,31 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
       Alert.alert('입력 오류', '손익 금액은 0이 될 수 없습니다.');
       return;
     }
+    const accountCurrency = account.type === 'INVEST' ? account.currency ?? 'KRW' : 'KRW';
+    const inputCurrency = account.type === 'INVEST' ? recordInputCurrency : 'KRW';
+    const fxRateForRecord = account.type === 'INVEST' && accountCurrency === 'USD' ? usdKrwRate ?? undefined : undefined;
+    let convertedAbs = Math.abs(parsedAmount);
+    if (accountCurrency !== inputCurrency) {
+      if (!usdKrwRate || usdKrwRate <= 0) {
+        Alert.alert('환율 오류', '환율 정보를 불러오지 못해 다른 화폐로 등록할 수 없습니다.');
+        return;
+      }
+      if (inputCurrency === 'KRW' && accountCurrency === 'USD') {
+        convertedAbs = convertedAbs / usdKrwRate;
+      } else if (inputCurrency === 'USD' && accountCurrency === 'KRW') {
+        convertedAbs = convertedAbs * usdKrwRate;
+      }
+    } else if (account.type === 'INVEST' && accountCurrency === 'USD' && (!usdKrwRate || usdKrwRate <= 0)) {
+      Alert.alert('환율 오류', '환율 정보를 불러오지 못해 저장할 수 없습니다.');
+      return;
+    }
+    const roundedConverted = accountCurrency === 'USD'
+      ? Math.round(convertedAbs * 100) / 100
+      : Math.trunc(convertedAbs);
     const normalizedAmount =
       recordEntryType === 'LOSS'
-        ? -Math.abs(parsedAmount)
-        : Math.abs(parsedAmount);
+        ? -roundedConverted
+        : roundedConverted;
     const normalizedKind: AssetFlowRecordKind = recordEntryType === 'DEPOSIT' ? 'DEPOSIT' : 'PNL';
 
     const userId = await requireAuthenticatedUserId();
@@ -222,6 +246,7 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
       await addLocalAssetFlowRecord(userId, account.id, {
         kind: normalizedKind,
         amount: normalizedAmount,
+        fxRate: fxRateForRecord,
         occurredAt,
         memo: memo.trim() || null,
       });
@@ -229,6 +254,7 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
       await updateLocalAssetFlowRecord(userId, account.id, recordEditId, {
         kind: normalizedKind,
         amount: normalizedAmount,
+        fxRate: fxRateForRecord,
         occurredAt,
         memo: memo.trim() || null,
       });
@@ -400,11 +426,31 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
                 </Pressable>
               </View>
               <TextField
-                label={`${recordEntryType === 'DEPOSIT' ? '입금 금액' : '손익 금액'} (${account.type === 'INVEST' ? account.currency ?? 'KRW' : 'KRW'})`}
+                label={`${recordEntryType === 'DEPOSIT' ? '입금 금액' : '손익 금액'} (${account.type === 'INVEST' ? recordInputCurrency : 'KRW'})`}
                 value={amount}
                 onChangeText={setAmount}
                 placeholder={recordEntryType === 'DEPOSIT' ? '예: 300000' : '예: 120000'}
               />
+              {account.type === 'INVEST' ? (
+                <View style={styles.radioRow}>
+                  {currencyOptions.map((option) => (
+                    <Pressable
+                      key={option.value}
+                      style={[styles.radioChip, recordInputCurrency === option.value && styles.radioChipActive]}
+                      onPress={() => setRecordInputCurrency(option.value)}
+                    >
+                      <Text style={recordInputCurrency === option.value ? styles.radioChipTextActive : styles.radioChipText}>
+                        입력 {option.value}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
+              {account.type === 'INVEST' && recordInputCurrency !== (account.currency ?? 'KRW') && usdKrwRate ? (
+                <Text style={styles.rateText}>
+                  저장 시 {account.currency ?? 'KRW'} 기준으로 자동 환산됩니다. (1 USD = {usdKrwRate.toLocaleString()}원)
+                </Text>
+              ) : null}
               <TextField label="비고" value={memo} onChangeText={setMemo} placeholder="선택 입력" />
               <View style={styles.dateField}>
                 <Text style={styles.dateFieldLabel}>날짜</Text>

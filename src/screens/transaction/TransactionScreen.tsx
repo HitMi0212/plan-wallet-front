@@ -18,6 +18,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { ErrorBanner } from '../../components/ErrorBanner';
 import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { TextField } from '../../components/TextField';
+import { getLocalAssetFlowLinkedTransactionIds, requireAuthenticatedUserId } from '../../services/localDb';
 import { Transaction, TransactionType } from '../../services/transactionApi';
 import { useCategoryStore } from '../../stores/categoryStore';
 import { useTransactionStore } from '../../stores/transactionStore';
@@ -43,6 +44,7 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
   const [detailCategoryId, setDetailCategoryId] = useState<number | null>(null);
   const [detailOccurredDateInput, setDetailOccurredDateInput] = useState(dayjs().format('YYYY-MM-DD'));
   const [showDetailOccurredDateModal, setShowDetailOccurredDateModal] = useState(false);
+  const [assetFlowManagedTransactionIds, setAssetFlowManagedTransactionIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     load();
@@ -58,6 +60,11 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
     React.useCallback(() => {
       load();
       loadCategories();
+      (async () => {
+        const userId = await requireAuthenticatedUserId();
+        const ids = await getLocalAssetFlowLinkedTransactionIds(userId);
+        setAssetFlowManagedTransactionIds(new Set(ids));
+      })();
     }, [load, loadCategories])
   );
 
@@ -154,6 +161,7 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
 
 
   const openDetailModal = (item: Transaction) => {
+    if (assetFlowManagedTransactionIds.has(item.id)) return;
     setSelectedTransaction(item);
     setDetailType(item.type);
     setDetailAmount(String(item.amount));
@@ -211,6 +219,7 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
   };
 
   const handleDeleteFromList = (id: number) => {
+    if (assetFlowManagedTransactionIds.has(id)) return;
     Alert.alert('삭제 확인', '거래를 삭제할까요?', [
       { text: '취소', style: 'cancel' },
       { text: '삭제', style: 'destructive', onPress: () => remove(id) },
@@ -308,12 +317,14 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
               </Text>
               {item.memo ? <Text style={styles.itemMemo}>{item.memo}</Text> : null}
             </Pressable>
-            <Pressable
-              style={[styles.actionButton, styles.deleteButton, styles.inlineDeleteButton]}
-              onPress={() => handleDeleteFromList(item.id)}
-            >
-              <Text style={[styles.actionText, styles.deleteActionText]}>삭제</Text>
-            </Pressable>
+            {!assetFlowManagedTransactionIds.has(item.id) ? (
+              <Pressable
+                style={[styles.actionButton, styles.deleteButton, styles.inlineDeleteButton]}
+                onPress={() => handleDeleteFromList(item.id)}
+              >
+                <Text style={[styles.actionText, styles.deleteActionText]}>삭제</Text>
+              </Pressable>
+            ) : null}
           </View>
         )}
       />

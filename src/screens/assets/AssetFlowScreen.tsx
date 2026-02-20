@@ -135,6 +135,10 @@ export function AssetFlowScreen({ navigation }: { navigation: any }) {
       Alert.alert('입력 오류', '금액을 올바르게 입력해 주세요.');
       return;
     }
+    if (type === 'INVEST' && currency === 'USD' && (!usdKrwRate || usdKrwRate <= 0)) {
+      Alert.alert('환율 오류', '환율 정보를 불러온 뒤 다시 시도해 주세요.');
+      return;
+    }
 
     const userId = await requireAuthenticatedUserId();
     await createLocalAssetFlowAccount(userId, {
@@ -143,6 +147,7 @@ export function AssetFlowScreen({ navigation }: { navigation: any }) {
       bankName: bankName.trim(),
       productName: type === 'SAVINGS' ? productName.trim() : '',
       amount: parsedAmount,
+      fxRate: type === 'INVEST' && currency === 'USD' ? usdKrwRate ?? undefined : undefined,
       occurredAt,
       memo: memo.trim() || null,
     });
@@ -170,17 +175,21 @@ export function AssetFlowScreen({ navigation }: { navigation: any }) {
 
       <View style={styles.summaryCard}>
         <Text style={styles.savingsText}>예적금 {totals.savings.toLocaleString()}원</Text>
-        <Text style={styles.investText}>투자 (KRW) {totals.investKrw.toLocaleString()}원</Text>
-        <Text style={styles.investText}>투자 (USD) ${totals.investUsd.toLocaleString()}</Text>
+        <Text style={styles.investText}>
+          투자 총합{' '}
+          {(
+            totals.investKrw +
+            (usdKrwRate ? Math.trunc(totals.investUsd * usdKrwRate) : 0)
+          ).toLocaleString()}
+          원
+        </Text>
         {usdKrwRate ? (
           <Text style={styles.rateText}>
             적용 환율: 1 USD = {usdKrwRate.toLocaleString()}원 (한국수출입은행)
           </Text>
         ) : null}
-        {usdKrwRate ? (
-          <Text style={styles.investText}>
-            투자 USD 환산: {(totals.investUsd * usdKrwRate).toLocaleString()}원
-          </Text>
+        {!usdKrwRate && totals.investUsd > 0 ? (
+          <Text style={styles.rateText}>USD 투자 금액 환산을 위해 환율을 불러오는 중입니다.</Text>
         ) : null}
       </View>
 
