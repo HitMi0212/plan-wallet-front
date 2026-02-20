@@ -2,6 +2,8 @@ import dayjs from 'dayjs';
 import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Svg, { Path } from 'react-native-svg';
 import {
   Alert,
   FlatList,
@@ -28,6 +30,37 @@ import { useTransactionStore } from '../../stores/transactionStore';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { TextField } from '../../components/TextField';
 
+function VisibilityIcon({ hidden }: { hidden: boolean }) {
+  const color = '#e2e8f0';
+  return (
+    <Svg width={16} height={16} viewBox="0 0 24 24">
+      {hidden ? (
+        <>
+          <Path
+            d="M3 3l18 18M10.6 10.6a2 2 0 102.8 2.8M9.9 5.3A9.8 9.8 0 0112 5c5.4 0 9.3 4.1 10 7-0.2 1-0.9 2.4-2.1 3.8M6.2 8.6C4.5 10.2 3.4 12 3 12c0.7 2.9 4.6 7 10 7 1.1 0 2.2-0.2 3.2-0.5"
+            stroke={color}
+            strokeWidth={1.9}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
+        </>
+      ) : (
+        <Path
+          d="M2 12s3.8-7 10-7 10 7 10 7-3.8 7-10 7S2 12 2 12zm10 3a3 3 0 100-6 3 3 0 000 6z"
+          stroke={color}
+          strokeWidth={1.9}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+      )}
+    </Svg>
+  );
+}
+
+const AMOUNT_VISIBILITY_STORAGE_KEY = 'home_amount_hidden';
+
 export function HomeScreen({ navigation }: { navigation: any }) {
   const { items, loading, error, load, add } = useTransactionStore();
   const categories = useCategoryStore((state) => state.items);
@@ -44,8 +77,17 @@ export function HomeScreen({ navigation }: { navigation: any }) {
   const [occurredDateInput, setOccurredDateInput] = useState(dayjs().format('YYYY-MM-DD'));
   const [showOccurredDateModal, setShowOccurredDateModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [amountHidden, setAmountHidden] = useState(false);
   const [savingsDepositTxIdSet, setSavingsDepositTxIdSet] = useState<Set<number>>(new Set());
   const [investDepositTxIdSet, setInvestDepositTxIdSet] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    (async () => {
+      const stored = await AsyncStorage.getItem(AMOUNT_VISIBILITY_STORAGE_KEY);
+      if (stored === 'true') setAmountHidden(true);
+      if (stored === 'false') setAmountHidden(false);
+    })();
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -304,6 +346,15 @@ export function HomeScreen({ navigation }: { navigation: any }) {
   const closeDetailModal = () => {
     setDetailModalVisible(false);
   };
+  const maskedDigits = (_value: number) => '*****';
+  const masked = (value: number, unit = '원') =>
+    amountHidden
+      ? `${maskedDigits(value)}${unit}`
+      : `${value.toLocaleString()}${unit}`;
+  const signedMasked = (value: number, type: TransactionType) =>
+    amountHidden
+      ? `${maskedDigits(value)}원`
+      : `${type === 'INCOME' ? '+' : '-'}${value.toLocaleString()}원`;
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -316,6 +367,14 @@ export function HomeScreen({ navigation }: { navigation: any }) {
     });
   }, [navigation, monthLabel]);
 
+  const toggleAmountHidden = () => {
+    setAmountHidden((prev) => {
+      const next = !prev;
+      void AsyncStorage.setItem(AMOUNT_VISIBILITY_STORAGE_KEY, String(next));
+      return next;
+    });
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -323,10 +382,17 @@ export function HomeScreen({ navigation }: { navigation: any }) {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <View style={styles.heroCard}>
+        <Pressable
+          style={styles.amountToggleButton}
+          hitSlop={14}
+          onPress={toggleAmountHidden}
+        >
+          <VisibilityIcon hidden={amountHidden} />
+        </Pressable>
         <Text style={styles.heroLabel}>{heroLabel}</Text>
-        <Text style={styles.heroValue}>{heroValue.toLocaleString()}원</Text>
+        <Text style={styles.heroValue}>{masked(heroValue)}</Text>
         {savingsAmount > 0 || investAmount > 0 ? (
-          <Text style={styles.savingsText}>예적금 {savingsAmount.toLocaleString()}원 · 투자 {investAmount.toLocaleString()}원</Text>
+          <Text style={styles.savingsText}>예적금 {masked(savingsAmount)} · 투자 {masked(investAmount)}</Text>
         ) : null}
       </View>
 
@@ -338,22 +404,22 @@ export function HomeScreen({ navigation }: { navigation: any }) {
           onPress={() => openDetailModal('INCOME')}
         >
           <Text style={styles.statLabel}>수입</Text>
-          <Text style={[styles.statValue, styles.incomeText]}>{incomeTotal.toLocaleString()}원</Text>
+          <Text style={[styles.statValue, styles.incomeText]}>{masked(incomeTotal)}</Text>
         </Pressable>
         <Pressable
           style={[styles.statCard, styles.expenseCard]}
           onPress={() => openDetailModal('EXPENSE')}
         >
           <Text style={styles.statLabel}>지출</Text>
-          <Text style={[styles.statValue, styles.expenseText]}>{expenseTotal.toLocaleString()}원</Text>
+          <Text style={[styles.statValue, styles.expenseText]}>{masked(expenseTotal)}</Text>
           <Text style={styles.expenseSubText}>
-            일반 지출 <Text style={styles.expenseSubAmount}>{normalExpense.toLocaleString()}원</Text>
+            일반 지출 <Text style={styles.expenseSubAmount}>{masked(normalExpense)}</Text>
           </Text>
           <Text style={styles.expenseSubText}>
-            예적금 <Text style={styles.expenseSubAmount}>{savingsAmount.toLocaleString()}원</Text>
+            예적금 <Text style={styles.expenseSubAmount}>{masked(savingsAmount)}</Text>
           </Text>
           <Text style={styles.expenseSubText}>
-            투자 <Text style={styles.expenseSubAmount}>{investAmount.toLocaleString()}원</Text>
+            투자 <Text style={styles.expenseSubAmount}>{masked(investAmount)}</Text>
           </Text>
         </Pressable>
       </View>
@@ -387,8 +453,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
                     {item.memo ? <Text style={styles.monthItemMemo}>{item.memo}</Text> : null}
                   </View>
                   <Text style={item.type === 'INCOME' ? styles.monthItemIncome : styles.monthItemExpense}>
-                    {item.type === 'INCOME' ? '+' : '-'}
-                    {item.amount.toLocaleString()}원
+                    {signedMasked(item.amount, item.type)}
                   </Text>
                 </View>
               ))}
@@ -406,8 +471,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
                 <View key={`${item.categoryName}-${index}`} style={styles.categoryTotalRow}>
                   <Text style={styles.categoryTotalName}>{item.categoryName}</Text>
                   <Text style={item.type === 'INCOME' ? styles.categoryTotalIncome : styles.categoryTotalExpense}>
-                    {item.type === 'INCOME' ? '+' : '-'}
-                    {item.total.toLocaleString()}원
+                    {signedMasked(item.total, item.type)}
                   </Text>
                 </View>
               ))}
@@ -577,8 +641,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
                       {item.memo ? <Text style={styles.detailMemo}>{item.memo}</Text> : null}
                     </View>
                     <Text style={item.type === 'INCOME' ? styles.detailIncome : styles.detailExpense}>
-                      {item.type === 'INCOME' ? '+' : '-'}
-                      {item.amount.toLocaleString()}원
+                      {signedMasked(item.amount, item.type)}
                     </Text>
                   </View>
                 ))}
@@ -619,6 +682,20 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
     elevation: 4,
+    position: 'relative',
+  },
+  amountToggleButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
+    backgroundColor: '#111827',
   },
   heroLabel: {
     color: '#cbd5e1',
