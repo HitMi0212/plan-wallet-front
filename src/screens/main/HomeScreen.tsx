@@ -21,7 +21,6 @@ import { ExpenseCategoryKind } from '../../services/categoryApi';
 import {
   getLocalAssetFlowAccounts,
   requireAuthenticatedUserId,
-  seedDemoDataIfEmpty,
   syncLocalAssetFlowToTransactions,
 } from '../../services/localDb';
 import { TransactionType } from '../../services/transactionApi';
@@ -91,8 +90,6 @@ export function HomeScreen({ navigation }: { navigation: any }) {
 
   useEffect(() => {
     (async () => {
-      const userId = await requireAuthenticatedUserId();
-      await seedDemoDataIfEmpty(userId);
       load();
     })();
   }, [load]);
