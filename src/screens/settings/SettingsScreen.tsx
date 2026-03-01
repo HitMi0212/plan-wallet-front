@@ -6,9 +6,12 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { RootStackParamList } from '../../app/routes';
 import { exportBackupFile, importBackupFile } from '../../services/backupService';
+import { exportTransactionCsv } from '../../services/csvService';
+import { useAuthStore } from '../../stores/authStore';
 
 export function SettingsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const logout = useAuthStore((state) => state.logout);
 
   const handleExport = async () => {
     try {
@@ -35,6 +38,26 @@ export function SettingsScreen() {
     }
   };
 
+  const handleExportCsv = async () => {
+    try {
+      const result = await exportTransactionCsv();
+      Alert.alert('CSV 완료', `${result.fileName} 파일을 공유 화면에서 저장해 주세요.`);
+    } catch (error) {
+      Alert.alert('CSV 실패', 'CSV 파일 생성 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleLogout = () => {
+    Alert.alert('로그아웃', '로그아웃할까요?', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '로그아웃',
+        style: 'destructive',
+        onPress: () => logout(),
+      },
+    ]);
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.card}>
@@ -47,12 +70,22 @@ export function SettingsScreen() {
           title="수입 카테고리 관리"
           onPress={() => navigation.navigate('CategoryManagement', { filter: 'INCOME', title: '수입 카테고리 관리' })}
         />
+        <PrimaryButton
+          title="반복 거래 관리"
+          onPress={() => navigation.navigate('RecurringManagement')}
+        />
       </View>
 
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>데이터 관리</Text>
         <PrimaryButton title="데이터 백업 파일 만들기" onPress={handleExport} />
         <PrimaryButton title="백업 파일 가져오기" onPress={handleImport} />
+        <PrimaryButton title="거래 CSV 내보내기" onPress={handleExportCsv} />
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>계정</Text>
+        <PrimaryButton title="로그아웃" onPress={handleLogout} />
       </View>
     </ScrollView>
   );

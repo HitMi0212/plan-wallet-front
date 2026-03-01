@@ -12,6 +12,7 @@ jest.mock('../stores/statsStore', () => ({
     monthly: null,
     comparison: null,
     categoryTotals: [],
+    paymentMethodTotals: [],
     loading: false,
     error: null,
     load: jest.fn(),

@@ -20,10 +20,12 @@ import {
 import { ExpenseCategoryKind } from '../../services/categoryApi';
 import {
   getLocalAssetFlowAccounts,
+  getLocalMonthlyBudget,
   requireAuthenticatedUserId,
+  setLocalMonthlyBudget,
   syncLocalAssetFlowToTransactions,
 } from '../../services/localDb';
-import { TransactionType } from '../../services/transactionApi';
+import { PaymentMethod, TransactionType } from '../../services/transactionApi';
 import { useCategoryStore } from '../../stores/categoryStore';
 import { useTransactionStore } from '../../stores/transactionStore';
 import { PrimaryButton } from '../../components/PrimaryButton';
@@ -79,6 +81,11 @@ export function HomeScreen({ navigation }: { navigation: any }) {
   const [amountHidden, setAmountHidden] = useState(false);
   const [savingsDepositTxIdSet, setSavingsDepositTxIdSet] = useState<Set<number>>(new Set());
   const [investDepositTxIdSet, setInvestDepositTxIdSet] = useState<Set<number>>(new Set());
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
+  const [budgetAmountInput, setBudgetAmountInput] = useState('');
+  const [budgetModalOpen, setBudgetModalOpen] = useState(false);
+  const [monthlyBudgetAmount, setMonthlyBudgetAmount] = useState<number | null>(null);
+  const [fabOpen, setFabOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -99,6 +106,14 @@ export function HomeScreen({ navigation }: { navigation: any }) {
       loadCategories();
     }
   }, [categories.length, loadCategories]);
+
+  useEffect(() => {
+    (async () => {
+      const userId = await requireAuthenticatedUserId();
+      const budget = await getLocalMonthlyBudget(userId, selectedMonth.year(), selectedMonth.month() + 1);
+      setMonthlyBudgetAmount(budget?.amount ?? null);
+    })();
+  }, [selectedMonth]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -292,6 +307,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
     setSelectedCategoryId(null);
     setMemo('');
     setOccurredDateInput(dayjs().format('YYYY-MM-DD'));
+    setPaymentMethod('CASH');
   };
 
   const handleAdd = async () => {
@@ -317,6 +333,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
       amount: parsedAmount,
       categoryId: parsedCategory,
       memo: memo.trim() || null,
+      paymentMethod: type === 'EXPENSE' ? paymentMethod : null,
       occurredAt: parsedOccurredAt,
     });
 
@@ -336,6 +353,25 @@ export function HomeScreen({ navigation }: { navigation: any }) {
   const closeAddModal = () => {
     setAddModalVisible(false);
   };
+  const closeBudgetModal = () => {
+    setBudgetModalOpen(false);
+    setBudgetAmountInput('');
+  };
+  const openBudgetModal = () => {
+    setBudgetAmountInput(monthlyBudgetAmount ? String(monthlyBudgetAmount) : '');
+    setBudgetModalOpen(true);
+  };
+  const handleSaveBudget = async () => {
+    const parsed = Number(budgetAmountInput);
+    if (!parsed || parsed <= 0) {
+      Alert.alert('입력 오류', '예산 금액을 올바르게 입력해 주세요.');
+      return;
+    }
+    const userId = await requireAuthenticatedUserId();
+    const result = await setLocalMonthlyBudget(userId, selectedMonth.year(), selectedMonth.month() + 1, parsed);
+    setMonthlyBudgetAmount(result.amount);
+    closeBudgetModal();
+  };
   const openDetailModal = (nextType: TransactionType) => {
     setDetailModalType(nextType);
     setDetailModalVisible(true);
@@ -352,6 +388,13 @@ export function HomeScreen({ navigation }: { navigation: any }) {
     amountHidden
       ? `${maskedDigits(value)}원`
       : `${type === 'INCOME' ? '+' : '-'}${value.toLocaleString()}원`;
+  const todayExpenseTotal = useMemo(
+    () => todayItems.filter((item) => item.type === 'EXPENSE').reduce((sum, item) => sum + item.amount, 0),
+    [todayItems]
+  );
+  const budgetProgress = monthlyBudgetAmount && monthlyBudgetAmount > 0
+    ? Math.min(expenseTotal / monthlyBudgetAmount, 1)
+    : 0;
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -421,6 +464,28 @@ export function HomeScreen({ navigation }: { navigation: any }) {
         </Pressable>
       </View>
 
+      <View style={styles.budgetCard}>
+        <View style={styles.budgetHeaderRow}>
+          <Text style={styles.budgetTitle}>{monthLabel} 예산</Text>
+          <Pressable style={styles.inlineAddButton} onPress={openBudgetModal}>
+            <Text style={styles.inlineAddText}>{monthlyBudgetAmount ? '수정' : '설정'}</Text>
+          </Pressable>
+        </View>
+        {monthlyBudgetAmount ? (
+          <>
+            <Text style={styles.budgetAmount}>{masked(monthlyBudgetAmount)}</Text>
+            <View style={styles.budgetBar}>
+              <View style={[styles.budgetBarFill, { width: `${Math.round(budgetProgress * 100)}%` }]} />
+            </View>
+            <Text style={styles.budgetMeta}>
+              사용 {masked(expenseTotal)} · 잔여 {masked(Math.max(monthlyBudgetAmount - expenseTotal, 0))}
+            </Text>
+          </>
+        ) : (
+          <Text style={styles.helperText}>예산을 설정하면 진행률을 확인할 수 있어요.</Text>
+        )}
+      </View>
+
       {isCurrentMonth ? (
         <View style={styles.monthListCard}>
           <View style={styles.monthListHeader}>
@@ -437,6 +502,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
               <Text style={styles.inlineAddText}>등록</Text>
             </Pressable>
           </View>
+          <Text style={styles.todayTotalText}>총 {masked(todayExpenseTotal)}</Text>
           {todayItems.length === 0 ? (
             <Text style={styles.helperText}>오늘 등록된 내역이 없습니다.</Text>
           ) : (
@@ -530,6 +596,25 @@ export function HomeScreen({ navigation }: { navigation: any }) {
                 <Text style={type === 'INCOME' ? styles.typeChipTextActive : styles.typeChipText}>수입</Text>
               </Pressable>
             </View>
+            {type === 'EXPENSE' ? (
+              <View style={styles.methodRow}>
+                {([
+                  { label: '신용카드', value: 'CREDIT' },
+                  { label: '체크카드', value: 'DEBIT' },
+                  { label: '현금', value: 'CASH' },
+                ] as Array<{ label: string; value: PaymentMethod }>).map((option) => (
+                  <Pressable
+                    key={option.value}
+                    style={[styles.methodChip, paymentMethod === option.value && styles.methodChipActive]}
+                    onPress={() => setPaymentMethod(option.value)}
+                  >
+                    <Text style={paymentMethod === option.value ? styles.methodChipTextActive : styles.methodChipText}>
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
             <TextField label="금액" value={amount} onChangeText={setAmount} placeholder="예: 12000" />
             <View style={styles.categorySection}>
               <Text style={styles.categoryLabel}>카테고리</Text>
@@ -647,6 +732,69 @@ export function HomeScreen({ navigation }: { navigation: any }) {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <Modal visible={budgetModalOpen} transparent animationType="fade" onRequestClose={closeBudgetModal}>
+        <Pressable style={styles.modalBackdrop} onPress={closeBudgetModal}>
+          <Pressable style={styles.inlineModalCard} onPress={(event) => event.stopPropagation()}>
+            <Text style={styles.inlineModalTitle}>{monthLabel} 예산 설정</Text>
+            <TextField
+              label="예산 금액"
+              value={budgetAmountInput}
+              onChangeText={setBudgetAmountInput}
+              placeholder="예: 500000"
+              keyboardType="numeric"
+            />
+            <View style={styles.inlineModalActions}>
+              <View style={styles.stepActionItem}>
+                <PrimaryButton title="취소" onPress={closeBudgetModal} variant="secondary" />
+              </View>
+              <View style={styles.stepActionItem}>
+                <PrimaryButton title="저장" onPress={handleSaveBudget} />
+              </View>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <View pointerEvents="box-none" style={styles.fabLayer}>
+        {fabOpen ? (
+          <View style={styles.fabMenu}>
+            <Pressable
+              style={styles.fabMenuItem}
+              onPress={() => {
+                setFabOpen(false);
+                navigation.navigate('TransactionForm', { type: 'EXPENSE' });
+              }}
+            >
+              <Text style={styles.fabMenuText}>소비 등록</Text>
+            </Pressable>
+            <Pressable
+              style={styles.fabMenuItem}
+              onPress={() => {
+                setFabOpen(false);
+                navigation.navigate('AssetFlows');
+              }}
+            >
+              <Text style={styles.fabMenuText}>예적금 등록</Text>
+            </Pressable>
+            <Pressable
+              style={styles.fabMenuItem}
+              onPress={() => {
+                setFabOpen(false);
+                navigation.navigate('AssetFlows');
+              }}
+            >
+              <Text style={styles.fabMenuText}>투자 등록</Text>
+            </Pressable>
+          </View>
+        ) : null}
+        <Pressable
+          style={[styles.fabButton, fabOpen && styles.fabButtonActive]}
+          onPress={() => setFabOpen((prev) => !prev)}
+        >
+          <Text style={styles.fabText}>{fabOpen ? '×' : '+'}</Text>
+        </Pressable>
+      </View>
     </ScrollView>
   );
 }
@@ -715,6 +863,52 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     marginBottom: 12,
+  },
+  budgetCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 14,
+    marginBottom: 12,
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  budgetHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  budgetTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  budgetAmount: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#0f172a',
+    marginBottom: 8,
+  },
+  budgetBar: {
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: '#e2e8f0',
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  budgetBarFill: {
+    height: '100%',
+    backgroundColor: '#16a34a',
+  },
+  budgetMeta: {
+    color: '#475569',
+    fontSize: 12,
+    fontWeight: '600',
   },
   statCard: {
     flex: 1,
@@ -798,6 +992,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 8,
+  },
+  todayTotalText: {
+    color: '#0f172a',
+    fontSize: 13,
+    fontWeight: '700',
     marginBottom: 8,
   },
   monthItemRow: {
@@ -1010,6 +1210,32 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     flexWrap: 'wrap',
   },
+  methodRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  methodChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#cbd5f5',
+    backgroundColor: '#ffffff',
+  },
+  methodChipActive: {
+    borderColor: '#0f172a',
+    backgroundColor: '#0f172a',
+  },
+  methodChipText: {
+    color: '#0f172a',
+    fontWeight: '600',
+  },
+  methodChipTextActive: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
   typeChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -1114,5 +1340,81 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
     elevation: 4,
+  },
+  inlineModalCard: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 14,
+  },
+  inlineModalTitle: {
+    color: '#0f172a',
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  inlineModalActions: {
+    marginTop: 8,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  stepActionItem: {
+    flex: 1,
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  fabLayer: {
+    position: 'absolute',
+    right: 20,
+    bottom: 30,
+    alignItems: 'flex-end',
+  },
+  fabMenu: {
+    gap: 8,
+    marginBottom: 10,
+  },
+  fabMenuItem: {
+    backgroundColor: '#111827',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#1f2937',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  fabMenuText: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  fabButton: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#16a34a',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
+  },
+  fabButtonActive: {
+    backgroundColor: '#0f172a',
+  },
+  fabText: {
+    color: '#ffffff',
+    fontSize: 28,
+    fontWeight: '800',
+    marginTop: -2,
   },
 });

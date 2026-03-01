@@ -11,15 +11,19 @@ import { TotalWealthScreen } from '../screens/assets/TotalWealthScreen';
 import { CategoryScreen } from '../screens/category/CategoryScreen';
 import { BootScreen } from '../screens/common/BootScreen';
 import { HomeScreen } from '../screens/main/HomeScreen';
+import { LoginScreen } from '../screens/auth/LoginScreen';
+import { SignUpScreen } from '../screens/auth/SignUpScreen';
 import { SettingsScreen } from '../screens/settings/SettingsScreen';
+import { RecurringManagementScreen } from '../screens/settings/RecurringManagementScreen';
 import { StatsScreen } from '../screens/stats/StatsScreen';
 import { TransactionFormScreen } from '../screens/transaction/TransactionFormScreen';
 import { TransactionScreen } from '../screens/transaction/TransactionScreen';
 import { useAuthStore } from '../stores/authStore';
-import { MainTabParamList, RootStackParamList } from './routes';
+import { AuthStackParamList, MainTabParamList, RootStackParamList } from './routes';
 
 const MainTabs = createBottomTabNavigator<MainTabParamList>();
 const RootStack = createNativeStackNavigator<RootStackParamList>();
+const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 
 function MainTabNavigator() {
   const monthTitle = `${dayjs().year()}년 ${dayjs().month() + 1}월`;
@@ -71,6 +75,7 @@ function MainTabNavigator() {
 export function AppNavigator() {
   const isHydrated = useAuthStore((state) => state.isHydrated);
   const hydrate = useAuthStore((state) => state.hydrate);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   useEffect(() => {
     hydrate();
@@ -82,23 +87,24 @@ export function AppNavigator() {
 
   return (
     <NavigationContainer>
-      <RootStack.Navigator
-        screenOptions={{
-          headerShown: false,
-          headerBackTitle: '이전',
-        }}
-      >
-        <RootStack.Screen name="MainTabs" component={MainTabNavigator} />
-        <RootStack.Screen name="TransactionForm" component={TransactionFormScreen} />
-        <RootStack.Screen
-          name="AssetFlowDetail"
-          component={AssetFlowDetailScreen}
-          options={{
-            headerShown: true,
-            headerTitle: '상품 상세',
-            headerTitleAlign: 'center',
+      {isAuthenticated ? (
+        <RootStack.Navigator
+          screenOptions={{
+            headerShown: false,
+            headerBackTitle: '이전',
           }}
-        />
+        >
+          <RootStack.Screen name="MainTabs" component={MainTabNavigator} />
+          <RootStack.Screen name="TransactionForm" component={TransactionFormScreen} />
+          <RootStack.Screen
+            name="AssetFlowDetail"
+            component={AssetFlowDetailScreen}
+            options={{
+              headerShown: true,
+              headerTitle: '상품 상세',
+              headerTitleAlign: 'center',
+            }}
+          />
         <RootStack.Screen
           name="CategoryManagement"
           component={CategoryScreen}
@@ -108,7 +114,27 @@ export function AppNavigator() {
             headerTitleAlign: 'center',
           })}
         />
+        <RootStack.Screen
+          name="RecurringManagement"
+          component={RecurringManagementScreen}
+          options={{
+            headerShown: true,
+            headerTitle: '반복 거래 관리',
+            headerTitleAlign: 'center',
+          }}
+        />
       </RootStack.Navigator>
+      ) : (
+        <AuthStack.Navigator
+          screenOptions={{
+            headerTitleAlign: 'center',
+            headerBackTitle: '이전',
+          }}
+        >
+          <AuthStack.Screen name="Login" component={LoginScreen} options={{ title: '로그인' }} />
+          <AuthStack.Screen name="SignUp" component={SignUpScreen} options={{ title: '회원가입' }} />
+        </AuthStack.Navigator>
+      )}
     </NavigationContainer>
   );
 }

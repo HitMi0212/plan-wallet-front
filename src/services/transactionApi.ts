@@ -1,5 +1,7 @@
 ﻿export type TransactionType = 'INCOME' | 'EXPENSE';
 
+export type PaymentMethod = 'CREDIT' | 'DEBIT' | 'CASH';
+
 export interface Transaction {
   id: number;
   type: TransactionType;
@@ -7,6 +9,8 @@ export interface Transaction {
   categoryId: number;
   categoryName?: string;
   memo?: string | null;
+  paymentMethod?: PaymentMethod | null;
+  recurringRuleId?: number;
   occurredAt: string;
   createdAt: string;
   updatedAt: string;
@@ -17,6 +21,8 @@ export interface TransactionCreateRequest {
   amount: number;
   categoryId: number;
   memo?: string | null;
+  paymentMethod?: PaymentMethod | null;
+  recurringRuleId?: number;
   occurredAt: string;
 }
 
@@ -25,5 +31,6 @@ export interface TransactionUpdateRequest {
   amount: number;
   categoryId: number;
   memo?: string | null;
+  paymentMethod?: PaymentMethod | null;
   occurredAt: string;
 }

@@ -3,7 +3,13 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 
-import { CATEGORIES_KEY, TRANSACTIONS_KEY, USERS_KEY } from './localDb';
+import {
+  CATEGORIES_KEY,
+  MONTHLY_BUDGETS_KEY,
+  RECURRING_RULES_KEY,
+  TRANSACTIONS_KEY,
+  USERS_KEY,
+} from './localDb';
 import { ACCESS_KEY, REFRESH_KEY } from './token';
 
 const BACKUP_VERSION = 1;
@@ -15,6 +21,8 @@ interface BackupPayload {
     users: unknown[];
     categories: unknown[];
     transactions: unknown[];
+    recurringRules: unknown[];
+    monthlyBudgets: unknown[];
     tokens: {
       accessToken: string | null;
       refreshToken: string | null;
@@ -54,6 +62,8 @@ async function createBackupPayload(): Promise<BackupPayload> {
     USERS_KEY,
     CATEGORIES_KEY,
     TRANSACTIONS_KEY,
+    RECURRING_RULES_KEY,
+    MONTHLY_BUDGETS_KEY,
     ACCESS_KEY,
     REFRESH_KEY,
   ]);
@@ -62,6 +72,8 @@ async function createBackupPayload(): Promise<BackupPayload> {
   const users = asArray(JSON.parse(map.get(USERS_KEY) ?? '[]'));
   const categories = asArray(JSON.parse(map.get(CATEGORIES_KEY) ?? '[]'));
   const transactions = asArray(JSON.parse(map.get(TRANSACTIONS_KEY) ?? '[]'));
+  const recurringRules = asArray(JSON.parse(map.get(RECURRING_RULES_KEY) ?? '[]'));
+  const monthlyBudgets = asArray(JSON.parse(map.get(MONTHLY_BUDGETS_KEY) ?? '[]'));
 
   return {
     version: BACKUP_VERSION,
@@ -70,6 +82,8 @@ async function createBackupPayload(): Promise<BackupPayload> {
       users,
       categories,
       transactions,
+      recurringRules,
+      monthlyBudgets,
       tokens: {
         accessToken: map.get(ACCESS_KEY) ?? null,
         refreshToken: map.get(REFRESH_KEY) ?? null,
@@ -141,6 +155,12 @@ function readBackupData(parsed: unknown): BackupPayload['data'] {
   const users = assertRecordArray(parsed.data.users, 'users');
   const categories = assertRecordArray(parsed.data.categories, 'categories');
   const transactions = assertRecordArray(parsed.data.transactions, 'transactions');
+  const recurringRules = Array.isArray(parsed.data.recurringRules)
+    ? parsed.data.recurringRules
+    : [];
+  const monthlyBudgets = Array.isArray(parsed.data.monthlyBudgets)
+    ? parsed.data.monthlyBudgets
+    : [];
 
   const tokens = isRecord(parsed.data.tokens) ? parsed.data.tokens : {};
   const accessToken = typeof tokens.accessToken === 'string' ? tokens.accessToken : null;
@@ -150,6 +170,8 @@ function readBackupData(parsed: unknown): BackupPayload['data'] {
     users,
     categories,
     transactions,
+    recurringRules,
+    monthlyBudgets,
     tokens: { accessToken, refreshToken },
   };
 }
@@ -183,6 +205,8 @@ export async function importBackupFile(): Promise<ImportResult> {
     [USERS_KEY, JSON.stringify(data.users)],
     [CATEGORIES_KEY, JSON.stringify(data.categories)],
     [TRANSACTIONS_KEY, JSON.stringify(data.transactions)],
+    [RECURRING_RULES_KEY, JSON.stringify(data.recurringRules ?? [])],
+    [MONTHLY_BUDGETS_KEY, JSON.stringify(data.monthlyBudgets ?? [])],
   ]);
 
   if (data.tokens.accessToken && data.tokens.refreshToken) {

@@ -16,7 +16,7 @@ const chartCardWidth = screenWidth - 48;
 const cardInnerWidth = chartCardWidth - 32;
 
 export function StatsScreen() {
-  const { monthly, comparison, categoryTotals, loading, error, load } = useStatsStore();
+  const { monthly, comparison, categoryTotals, paymentMethodTotals, loading, error, load } = useStatsStore();
   const transactions = useTransactionStore((state) => state.items);
   const loadTransactions = useTransactionStore((state) => state.load);
   const categories = useCategoryStore((state) => state.items);
@@ -224,6 +224,30 @@ export function StatsScreen() {
           </>
         ) : (
           <Text style={styles.helperText}>카테고리 소비 내역이 없습니다.</Text>
+        )}
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>결제수단별 소비</Text>
+        {paymentMethodTotals.length > 0 ? (
+          <View style={styles.categoryListWrap}>
+            {paymentMethodTotals.map((item) => (
+              <View key={item.method} style={styles.categoryRow}>
+                <Text style={styles.categoryName}>
+                  {item.method === 'CREDIT'
+                    ? '신용카드'
+                    : item.method === 'DEBIT'
+                      ? '체크카드'
+                      : item.method === 'CASH'
+                        ? '현금'
+                        : '미분류'}
+                </Text>
+                <Text style={styles.categoryAmount}>{item.total.toLocaleString()}원</Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.helperText}>결제수단별 소비 내역이 없습니다.</Text>
         )}
       </View>
 

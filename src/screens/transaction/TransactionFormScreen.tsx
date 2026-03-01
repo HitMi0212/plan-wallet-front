@@ -16,7 +16,8 @@ import {
 import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { TextField } from '../../components/TextField';
-import { TransactionType } from '../../services/transactionApi';
+import { PaymentMethod, TransactionType } from '../../services/transactionApi';
+import { createLocalRecurringRule, requireAuthenticatedUserId, RecurringFrequency } from '../../services/localDb';
 import { useCategoryStore } from '../../stores/categoryStore';
 import { useTransactionStore } from '../../stores/transactionStore';
 
@@ -42,6 +43,9 @@ export function TransactionFormScreen() {
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [step, setStep] = useState<'INPUT' | 'CATEGORY'>('INPUT');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
+  const [repeatEnabled, setRepeatEnabled] = useState(false);
+  const [repeatFrequency, setRepeatFrequency] = useState<RecurringFrequency>('MONTHLY');
 
   useEffect(() => {
     load();
@@ -130,8 +134,27 @@ export function TransactionFormScreen() {
       amount: validated.parsedAmount,
       categoryId: parsedCategory,
       memo: memo.trim() || null,
+      paymentMethod: type === 'EXPENSE' ? paymentMethod : null,
       occurredAt: validated.parsedOccurredAt,
     });
+
+    if (repeatEnabled) {
+      const userId = await requireAuthenticatedUserId();
+      const baseDate = dayjs(occurredDateInput);
+      await createLocalRecurringRule(userId, {
+        type,
+        amount: validated.parsedAmount,
+        categoryId: parsedCategory,
+        memo: memo.trim() || null,
+        paymentMethod: type === 'EXPENSE' ? paymentMethod : null,
+        startDate: occurredDateInput,
+        endDate: null,
+        frequency: repeatFrequency,
+        dayOfWeek: repeatFrequency === 'WEEKLY' ? baseDate.day() : undefined,
+        dayOfMonth: repeatFrequency === 'MONTHLY' || repeatFrequency === 'YEARLY' ? baseDate.date() : undefined,
+        monthOfYear: repeatFrequency === 'YEARLY' ? baseDate.month() + 1 : undefined,
+      });
+    }
 
     navigation.goBack();
   };
@@ -193,6 +216,66 @@ export function TransactionFormScreen() {
                 <Pressable style={styles.dateInputButton} onPress={() => setShowOccurredDateModal(true)}>
                   <Text style={styles.dateInputText}>{occurredDateInput}</Text>
                 </Pressable>
+              </View>
+              {type === 'EXPENSE' ? (
+                <View style={styles.sectionBlock}>
+                  <Text style={styles.sectionLabel}>결제 수단</Text>
+                  <View style={styles.methodRow}>
+                    {([
+                      { label: '신용카드', value: 'CREDIT' },
+                      { label: '체크카드', value: 'DEBIT' },
+                      { label: '현금', value: 'CASH' },
+                    ] as Array<{ label: string; value: PaymentMethod }>).map((option) => (
+                      <Pressable
+                        key={option.value}
+                        style={[
+                          styles.methodChip,
+                          paymentMethod === option.value && styles.methodChipActive,
+                        ]}
+                        onPress={() => setPaymentMethod(option.value)}
+                      >
+                        <Text style={paymentMethod === option.value ? styles.methodChipTextActive : styles.methodChipText}>
+                          {option.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+              <View style={styles.sectionBlock}>
+                <View style={styles.repeatHeaderRow}>
+                  <Text style={styles.sectionLabel}>반복 거래</Text>
+                  <Pressable
+                    style={[styles.toggleButton, repeatEnabled && styles.toggleButtonActive]}
+                    onPress={() => setRepeatEnabled((prev) => !prev)}
+                  >
+                    <Text style={repeatEnabled ? styles.toggleTextActive : styles.toggleText}>
+                      {repeatEnabled ? '켜짐' : '꺼짐'}
+                    </Text>
+                  </Pressable>
+                </View>
+                {repeatEnabled ? (
+                  <View style={styles.methodRow}>
+                    {([
+                      { label: '매주', value: 'WEEKLY' },
+                      { label: '매월', value: 'MONTHLY' },
+                      { label: '매년', value: 'YEARLY' },
+                    ] as Array<{ label: string; value: RecurringFrequency }>).map((option) => (
+                      <Pressable
+                        key={option.value}
+                        style={[
+                          styles.methodChip,
+                          repeatFrequency === option.value && styles.methodChipActive,
+                        ]}
+                        onPress={() => setRepeatFrequency(option.value)}
+                      >
+                        <Text style={repeatFrequency === option.value ? styles.methodChipTextActive : styles.methodChipText}>
+                          {option.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
               </View>
               <TextField label="금액" value={amount} onChangeText={setAmount} placeholder="예: 12000" keyboardType="numeric" />
               <TextField
@@ -364,6 +447,61 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0f172a',
     marginBottom: 10,
+  },
+  sectionBlock: {
+    marginBottom: 10,
+  },
+  methodRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  methodChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#cbd5f5',
+    backgroundColor: '#ffffff',
+  },
+  methodChipActive: {
+    backgroundColor: '#0f172a',
+    borderColor: '#0f172a',
+  },
+  methodChipText: {
+    color: '#0f172a',
+    fontWeight: '600',
+  },
+  methodChipTextActive: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  repeatHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  toggleButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#cbd5f5',
+    backgroundColor: '#ffffff',
+  },
+  toggleButtonActive: {
+    backgroundColor: '#0f172a',
+    borderColor: '#0f172a',
+  },
+  toggleText: {
+    color: '#0f172a',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  toggleTextActive: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 12,
   },
   typeSplitRow: {
     flexDirection: 'row',

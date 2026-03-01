@@ -21,7 +21,7 @@ import { ErrorBanner } from '../../components/ErrorBanner';
 import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { TextField } from '../../components/TextField';
 import { getLocalAssetFlowAccounts, requireAuthenticatedUserId } from '../../services/localDb';
-import { Transaction, TransactionType } from '../../services/transactionApi';
+import { PaymentMethod, Transaction, TransactionType } from '../../services/transactionApi';
 import { useCategoryStore } from '../../stores/categoryStore';
 import { useTransactionStore } from '../../stores/transactionStore';
 
@@ -46,6 +46,7 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
   const [detailCategoryId, setDetailCategoryId] = useState<number | null>(null);
   const [detailOccurredDateInput, setDetailOccurredDateInput] = useState(dayjs().format('YYYY-MM-DD'));
   const [showDetailOccurredDateModal, setShowDetailOccurredDateModal] = useState(false);
+  const [detailPaymentMethod, setDetailPaymentMethod] = useState<PaymentMethod>('CASH');
   const [assetFlowManagedTransactionIds, setAssetFlowManagedTransactionIds] = useState<Set<number>>(new Set());
   const [assetFlowMemoPrefixMap, setAssetFlowMemoPrefixMap] = useState<Map<number, string>>(new Map());
 
@@ -188,6 +189,7 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
     setDetailCategoryId(item.categoryId);
     setDetailMemo(item.memo ?? '');
     setDetailOccurredDateInput(dayjs(item.occurredAt).format('YYYY-MM-DD'));
+    setDetailPaymentMethod(item.paymentMethod ?? 'CASH');
     setDetailModalVisible(true);
   };
 
@@ -218,6 +220,7 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
       amount: parsedAmount,
       categoryId: parsedCategory,
       memo: detailMemo.trim() || null,
+      paymentMethod: detailType === 'EXPENSE' ? detailPaymentMethod : null,
       occurredAt: parsedOccurredAt,
     });
     closeDetailModal();
@@ -398,6 +401,33 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
                     ))}
                   </View>
                   <TextField label="금액" value={detailAmount} onChangeText={setDetailAmount} placeholder="예: 12000" keyboardType="numeric" />
+                  {detailType === 'EXPENSE' ? (
+                    <View style={styles.detailSection}>
+                      <Text style={styles.categoryLabel}>결제 수단</Text>
+                      <View style={styles.categoryRow}>
+                        {([
+                          { label: '신용카드', value: 'CREDIT' },
+                          { label: '체크카드', value: 'DEBIT' },
+                          { label: '현금', value: 'CASH' },
+                        ] as Array<{ label: string; value: PaymentMethod }>).map((option) => (
+                          <Pressable
+                            key={option.value}
+                            style={[
+                              styles.categoryChip,
+                              detailPaymentMethod === option.value && styles.categoryChipActive,
+                            ]}
+                            onPress={() => setDetailPaymentMethod(option.value)}
+                          >
+                            <Text
+                              style={detailPaymentMethod === option.value ? styles.categoryChipTextActive : styles.categoryChipText}
+                            >
+                              {option.label}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </View>
+                  ) : null}
                   <View style={styles.categorySection}>
                     <Text style={styles.categoryLabel}>카테고리</Text>
                     <View style={styles.categoryRow}>
@@ -499,6 +529,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   categorySection: {
+    marginBottom: 12,
+  },
+  detailSection: {
     marginBottom: 12,
   },
   categoryLabel: {

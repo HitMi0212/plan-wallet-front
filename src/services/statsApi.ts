@@ -1,6 +1,12 @@
 import dayjs from 'dayjs';
 
-import { getLocalTransactions, requireAuthenticatedUserId, syncLocalAssetFlowToTransactions } from './localDb';
+import {
+  getLocalTransactions,
+  requireAuthenticatedUserId,
+  syncLocalAssetFlowToTransactions,
+  syncLocalRecurringToTransactions,
+} from './localDb';
+import { PaymentMethod } from './transactionApi';
 
 export interface MonthlySummaryResponse {
   year: number;
@@ -29,6 +35,11 @@ export interface DailyTotalResponse {
   expenseTotal: number;
 }
 
+export interface PaymentMethodTotalResponse {
+  method: PaymentMethod | 'UNKNOWN';
+  total: number;
+}
+
 function toMonthlySummary(year: number, month: number, occurredAtValues: { type: 'INCOME' | 'EXPENSE'; amount: number }[]) {
   const incomeTotal = occurredAtValues
     .filter((item) => item.type === 'INCOME')
@@ -47,6 +58,7 @@ function toMonthlySummary(year: number, month: number, occurredAtValues: { type:
 
 export async function fetchMonthlySummary(year: number, month: number): Promise<MonthlySummaryResponse> {
   const userId = await requireAuthenticatedUserId();
+  await syncLocalRecurringToTransactions(userId);
   await syncLocalAssetFlowToTransactions(userId);
   const transactions = await getLocalTransactions(userId);
 
@@ -60,6 +72,7 @@ export async function fetchMonthlySummary(year: number, month: number): Promise<
 
 export async function fetchMonthlyComparison(year: number, month: number): Promise<MonthlyComparisonResponse> {
   const userId = await requireAuthenticatedUserId();
+  await syncLocalRecurringToTransactions(userId);
   await syncLocalAssetFlowToTransactions(userId);
   const transactions = await getLocalTransactions(userId);
 
@@ -89,6 +102,7 @@ export async function fetchMonthlyComparison(year: number, month: number): Promi
 
 export async function fetchCategoryTotals(from: string, to: string): Promise<CategoryTotalResponse[]> {
   const userId = await requireAuthenticatedUserId();
+  await syncLocalRecurringToTransactions(userId);
   await syncLocalAssetFlowToTransactions(userId);
   const transactions = await getLocalTransactions(userId);
 
@@ -117,6 +131,7 @@ export async function fetchCategoryTotals(from: string, to: string): Promise<Cat
 
 export async function fetchDailyTotals(year: number, month: number): Promise<DailyTotalResponse[]> {
   const userId = await requireAuthenticatedUserId();
+  await syncLocalRecurringToTransactions(userId);
   await syncLocalAssetFlowToTransactions(userId);
   const transactions = await getLocalTransactions(userId);
 
@@ -147,4 +162,24 @@ export async function fetchDailyTotals(year: number, month: number): Promise<Dai
     incomeTotal: value.incomeTotal,
     expenseTotal: value.expenseTotal,
   }));
+}
+
+export async function fetchPaymentMethodTotals(year: number, month: number): Promise<PaymentMethodTotalResponse[]> {
+  const userId = await requireAuthenticatedUserId();
+  await syncLocalRecurringToTransactions(userId);
+  await syncLocalAssetFlowToTransactions(userId);
+  const transactions = await getLocalTransactions(userId);
+
+  const totals = new Map<PaymentMethod | 'UNKNOWN', number>();
+  transactions
+    .filter((item) => {
+      const d = dayjs(item.occurredAt);
+      return item.type === 'EXPENSE' && d.year() === year && d.month() + 1 === month;
+    })
+    .forEach((item) => {
+      const method = item.paymentMethod ?? 'UNKNOWN';
+      totals.set(method, (totals.get(method) ?? 0) + item.amount);
+    });
+
+  return [...totals.entries()].map(([method, total]) => ({ method, total }));
 }

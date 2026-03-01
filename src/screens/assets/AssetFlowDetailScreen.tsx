@@ -40,10 +40,13 @@ import { useTransactionStore } from '../../stores/transactionStore';
 type Props = NativeStackScreenProps<RootStackParamList, 'AssetFlowDetail'>;
 
 function recordKindLabel(kind?: AssetFlowRecordKind) {
-  return kind === 'PNL' ? '손익' : '입금';
+  if (kind === 'PNL') return '손익';
+  if (kind === 'WITHDRAW') return '인출';
+  if (kind === 'INTEREST') return '이자';
+  return '입금';
 }
 
-type RecordEntryType = 'DEPOSIT' | 'PROFIT' | 'LOSS';
+type RecordEntryType = 'DEPOSIT' | 'PROFIT' | 'LOSS' | 'WITHDRAW' | 'INTEREST';
 
 const currencyOptions: { label: string; value: AssetFlowCurrency }[] = [
   { label: '원화 (KRW)', value: 'KRW' },
@@ -74,6 +77,17 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
   const [recordInputCurrency, setRecordInputCurrency] = useState<AssetFlowCurrency>('KRW');
   const [bankName, setBankName] = useState('');
   const [productName, setProductName] = useState('');
+  const [interestType, setInterestType] = useState<'SIMPLE' | 'COMPOUND'>('SIMPLE');
+  const [interestRateInput, setInterestRateInput] = useState('');
+  const [maturityDateInput, setMaturityDateInput] = useState('');
+  const [showMaturityDatePicker, setShowMaturityDatePicker] = useState(false);
+  const [interestCalcModalOpen, setInterestCalcModalOpen] = useState(false);
+  const [interestPrincipal, setInterestPrincipal] = useState('');
+  const [interestStartDate, setInterestStartDate] = useState(dayjs().format('YYYY-MM-DD'));
+  const [interestEndDate, setInterestEndDate] = useState(dayjs().format('YYYY-MM-DD'));
+  const [interestAmount, setInterestAmount] = useState<number | null>(null);
+  const [showInterestStartPicker, setShowInterestStartPicker] = useState(false);
+  const [showInterestEndPicker, setShowInterestEndPicker] = useState(false);
   const [amount, setAmount] = useState('');
   const [memo, setMemo] = useState('');
   const [occurredAt, setOccurredAt] = useState(dayjs().toISOString());
@@ -100,6 +114,13 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
     loadAccount();
   }, [loadAccount]);
 
+  useEffect(() => {
+    if (!account) return;
+    setInterestType(account.interestType ?? 'SIMPLE');
+    setInterestRateInput(account.interestRate ? String(account.interestRate) : '');
+    setMaturityDateInput(account.maturityDate ?? '');
+  }, [account]);
+
   useFocusEffect(
     useCallback(() => {
       loadAccount();
@@ -118,10 +139,17 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
     });
   }, [account, navigation]);
 
+  const getRecordNetAmount = React.useCallback((record: AssetFlowRecord) => {
+    const kind = record.kind ?? 'DEPOSIT';
+    if (kind === 'WITHDRAW') return -Math.abs(record.amount);
+    if (kind === 'INTEREST') return Math.abs(record.amount);
+    return record.amount;
+  }, []);
+
   const totalAmount = useMemo(() => {
     if (!account) return 0;
-    return account.records.reduce((sum, record) => sum + record.amount, 0);
-  }, [account]);
+    return account.records.reduce((sum, record) => sum + getRecordNetAmount(record), 0);
+  }, [account, getRecordNetAmount]);
 
   const sortedRecords = useMemo(() => {
     if (!account) return [];
@@ -133,6 +161,9 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
     setBankName(account.bankName);
     setProductName(account.productName);
     setCurrency(account.currency ?? 'KRW');
+    setInterestType(account.interestType ?? 'SIMPLE');
+    setInterestRateInput(account.interestRate ? String(account.interestRate) : '');
+    setMaturityDateInput(account.maturityDate ?? '');
     setEditModalVisible(true);
   };
 
@@ -148,12 +179,26 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
       return;
     }
 
+    const parsedRate = interestRateInput.trim() === '' ? null : Number(interestRateInput);
+    if (parsedRate !== null && (!Number.isFinite(parsedRate) || parsedRate <= 0)) {
+      Alert.alert('입력 오류', '이율은 0보다 큰 숫자여야 합니다.');
+      return;
+    }
+    const normalizedMaturity = maturityDateInput.trim() || null;
+    if (normalizedMaturity && !dayjs(normalizedMaturity, 'YYYY-MM-DD', true).isValid()) {
+      Alert.alert('입력 오류', '만기일은 YYYY-MM-DD 형식이어야 합니다.');
+      return;
+    }
+
     const userId = await requireAuthenticatedUserId();
     await updateLocalAssetFlowAccount(userId, account.id, {
       type: account.type,
       currency: account.type === 'INVEST' ? currency : 'KRW',
       bankName: institution,
       productName: account.type === 'SAVINGS' ? productName.trim() : '',
+      interestType,
+      interestRate: parsedRate,
+      maturityDate: normalizedMaturity,
     });
     setEditModalVisible(false);
     await loadAccount();
@@ -188,15 +233,33 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
     setRecordModalVisible(true);
   };
 
+  const openWithdrawModal = () => {
+    setRecordEditId(null);
+    setRecordEntryType('WITHDRAW');
+    setRecordInputCurrency(account?.type === 'INVEST' ? account.currency ?? 'KRW' : 'KRW');
+    setAmount(String(Math.max(Math.abs(totalAmount), 0)));
+    setMemo('만기 인출');
+    setOccurredAt(dayjs().toISOString());
+    setShowDatePicker(false);
+    setRecordModalVisible(true);
+  };
+
   const openEditRecordModal = (record: AssetFlowRecord) => {
     setRecordEditId(record.id);
     setRecordInputCurrency(account?.type === 'INVEST' ? account.currency ?? 'KRW' : 'KRW');
-    if ((record.kind ?? 'DEPOSIT') === 'PNL') {
+    const kind = record.kind ?? 'DEPOSIT';
+    if (kind === 'PNL') {
       setRecordEntryType(record.amount >= 0 ? 'PROFIT' : 'LOSS');
+      setAmount(String(Math.abs(record.amount)));
+    } else if (kind === 'WITHDRAW') {
+      setRecordEntryType('WITHDRAW');
+      setAmount(String(Math.abs(record.amount)));
+    } else if (kind === 'INTEREST') {
+      setRecordEntryType('INTEREST');
       setAmount(String(Math.abs(record.amount)));
     } else {
       setRecordEntryType('DEPOSIT');
-      setAmount(String(record.amount));
+      setAmount(String(Math.abs(record.amount)));
     }
     setMemo(record.memo ?? '');
     setOccurredAt(record.occurredAt);
@@ -207,9 +270,9 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
   const handleSaveRecord = async () => {
     if (!account) return;
     const parsedAmount = Number(amount);
-    if (recordEntryType === 'DEPOSIT') {
+    if (recordEntryType === 'DEPOSIT' || recordEntryType === 'WITHDRAW' || recordEntryType === 'INTEREST') {
       if (!parsedAmount || parsedAmount <= 0) {
-        Alert.alert('입력 오류', '입금 금액은 0보다 커야 합니다.');
+        Alert.alert('입력 오류', '금액은 0보다 커야 합니다.');
         return;
       }
     } else if (!parsedAmount || parsedAmount === 0) {
@@ -241,7 +304,14 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
       recordEntryType === 'LOSS'
         ? -roundedConverted
         : roundedConverted;
-    const normalizedKind: AssetFlowRecordKind = recordEntryType === 'DEPOSIT' ? 'DEPOSIT' : 'PNL';
+    const normalizedKind: AssetFlowRecordKind =
+      recordEntryType === 'DEPOSIT'
+        ? 'DEPOSIT'
+        : recordEntryType === 'WITHDRAW'
+          ? 'WITHDRAW'
+          : recordEntryType === 'INTEREST'
+            ? 'INTEREST'
+            : 'PNL';
 
     const userId = await requireAuthenticatedUserId();
     if (recordEditId === null) {
@@ -289,6 +359,69 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
     ]);
   };
 
+  const handleOpenInterestModal = () => {
+    if (!account) return;
+    setInterestAmount(null);
+    setInterestPrincipal(String(Math.max(totalAmount, 0)));
+    setInterestStartDate(dayjs(account.createdAt).format('YYYY-MM-DD'));
+    setInterestEndDate(dayjs().format('YYYY-MM-DD'));
+    setInterestCalcModalOpen(true);
+  };
+
+  const handleCalculateInterest = () => {
+    const principal = Number(interestPrincipal);
+    const rate = interestRateInput.trim() === '' ? 0 : Number(interestRateInput);
+    if (!principal || principal <= 0) {
+      Alert.alert('입력 오류', '원금을 올바르게 입력해 주세요.');
+      return;
+    }
+    if (!rate || rate <= 0) {
+      Alert.alert('입력 오류', '이율을 올바르게 입력해 주세요.');
+      return;
+    }
+    const start = dayjs(interestStartDate, 'YYYY-MM-DD', true);
+    const end = dayjs(interestEndDate, 'YYYY-MM-DD', true);
+    if (!start.isValid() || !end.isValid() || end.isBefore(start)) {
+      Alert.alert('입력 오류', '기간을 올바르게 입력해 주세요.');
+      return;
+    }
+
+    const days = end.diff(start, 'day') + 1;
+    let interest = 0;
+    if (interestType === 'SIMPLE') {
+      interest = principal * (rate / 100) * (days / 365);
+    } else {
+      const months = end.diff(start, 'month', true);
+      interest = principal * Math.pow(1 + rate / 100 / 12, months) - principal;
+    }
+
+    if (!account) return;
+    const rounded = account.currency === 'USD'
+      ? Math.round(interest * 100) / 100
+      : Math.trunc(interest);
+    setInterestAmount(Math.max(0, rounded));
+  };
+
+  const handleCommitInterest = async () => {
+    if (!account || interestAmount === null || interestAmount <= 0) {
+      Alert.alert('입력 오류', '이자 금액을 계산해 주세요.');
+      return;
+    }
+    const userId = await requireAuthenticatedUserId();
+    await addLocalAssetFlowRecord(userId, account.id, {
+      kind: 'INTEREST',
+      amount: interestAmount,
+      fxRate: account.type === 'INVEST' && account.currency === 'USD' ? usdKrwRate ?? undefined : undefined,
+      occurredAt: dayjs(interestEndDate, 'YYYY-MM-DD', true).isValid()
+        ? dayjs(interestEndDate, 'YYYY-MM-DD').toISOString()
+        : dayjs().toISOString(),
+      memo: '이자 정산',
+    });
+    setInterestCalcModalOpen(false);
+    await loadAccount();
+    await Promise.all([loadTransactions(), loadCategories()]);
+  };
+
   if (!account) {
     return (
       <View style={styles.emptyWrap}>
@@ -296,6 +429,10 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
       </View>
     );
   }
+
+  const maturityDue = account.maturityDate
+    ? dayjs().isAfter(dayjs(account.maturityDate), 'day') || dayjs().isSame(dayjs(account.maturityDate), 'day')
+    : false;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
@@ -322,9 +459,24 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
         ) : null}
       </View>
 
+      {maturityDue ? (
+        <View style={styles.maturityBanner}>
+          <View>
+            <Text style={styles.maturityTitle}>만기 도래</Text>
+            <Text style={styles.maturityText}>만기일 {account.maturityDate} · 인출 처리를 진행해 주세요.</Text>
+          </View>
+          <Pressable style={styles.maturityButton} onPress={openWithdrawModal}>
+            <Text style={styles.maturityButtonText}>인출</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       <View style={styles.actionRow}>
         <Pressable style={styles.addRecordButton} onPress={openAddRecordModal}>
           <Text style={styles.addRecordButtonText}>내역 추가</Text>
+        </Pressable>
+        <Pressable style={styles.addRecordGhostButton} onPress={handleOpenInterestModal}>
+          <Text style={styles.addRecordGhostText}>이자 계산</Text>
         </Pressable>
       </View>
 
@@ -334,6 +486,7 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
         ) : (
           sortedRecords.map((record) => {
             const kind = record.kind ?? 'DEPOSIT';
+            const netAmount = getRecordNetAmount(record);
             return (
               <View key={record.id} style={styles.recordRow}>
                 <Pressable style={styles.recordMain} onPress={() => openEditRecordModal(record)}>
@@ -345,12 +498,12 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
                   <Text
                     style={[
                       styles.recordAmount,
-                      kind === 'PNL' && record.amount > 0 ? styles.recordPnlPlus : null,
-                      kind === 'PNL' && record.amount < 0 ? styles.recordPnlMinus : null,
+                      netAmount > 0 ? styles.recordPnlPlus : null,
+                      netAmount < 0 ? styles.recordPnlMinus : null,
                     ]}
                   >
-                    {kind === 'PNL' && record.amount > 0 ? '+' : ''}
-                    {formatCurrencyAmount(record.amount, account.type === 'SAVINGS' ? 'KRW' : account.currency ?? 'KRW')}
+                    {netAmount > 0 ? '+' : ''}
+                    {formatCurrencyAmount(netAmount, account.type === 'SAVINGS' ? 'KRW' : account.currency ?? 'KRW')}
                   </Text>
                 </View>
               </View>
@@ -376,6 +529,48 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
               />
               {account.type === 'SAVINGS' ? (
                 <TextField label="상품명" value={productName} onChangeText={setProductName} placeholder="예: 청년희망적금" />
+              ) : null}
+              <TextField
+                label="연이율(%)"
+                value={interestRateInput}
+                onChangeText={setInterestRateInput}
+                placeholder="예: 3.5"
+                keyboardType="numeric"
+              />
+              <View style={styles.radioRow}>
+                <Pressable
+                  style={[styles.radioChip, interestType === 'SIMPLE' && styles.radioChipActive]}
+                  onPress={() => setInterestType('SIMPLE')}
+                >
+                  <Text style={interestType === 'SIMPLE' ? styles.radioChipTextActive : styles.radioChipText}>단리</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.radioChip, interestType === 'COMPOUND' && styles.radioChipActive]}
+                  onPress={() => setInterestType('COMPOUND')}
+                >
+                  <Text style={interestType === 'COMPOUND' ? styles.radioChipTextActive : styles.radioChipText}>월복리</Text>
+                </Pressable>
+              </View>
+              <View style={styles.dateField}>
+                <Text style={styles.dateFieldLabel}>만기일</Text>
+                <Pressable style={styles.dateButton} onPress={() => setShowMaturityDatePicker(true)}>
+                  <Text style={styles.dateButtonText}>{maturityDateInput || '미설정'}</Text>
+                </Pressable>
+              </View>
+              {showMaturityDatePicker ? (
+                <DateTimePicker
+                  value={dayjs(maturityDateInput || dayjs().format('YYYY-MM-DD')).toDate()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                  onChange={(_, selectedDate) => {
+                    if (selectedDate) {
+                      setMaturityDateInput(dayjs(selectedDate).format('YYYY-MM-DD'));
+                    }
+                    if (Platform.OS !== 'ios') {
+                      setShowMaturityDatePicker(false);
+                    }
+                  }}
+                />
               ) : null}
               {account.type === 'INVEST' ? (
                 <View style={styles.radioRow}>
@@ -418,6 +613,18 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
                   <Text style={recordEntryType === 'DEPOSIT' ? styles.radioChipTextActive : styles.radioChipText}>입금</Text>
                 </Pressable>
                 <Pressable
+                  style={[styles.radioChip, recordEntryType === 'WITHDRAW' && styles.radioChipActive]}
+                  onPress={() => setRecordEntryType('WITHDRAW')}
+                >
+                  <Text style={recordEntryType === 'WITHDRAW' ? styles.radioChipTextActive : styles.radioChipText}>인출</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.radioChip, recordEntryType === 'INTEREST' && styles.radioChipActive]}
+                  onPress={() => setRecordEntryType('INTEREST')}
+                >
+                  <Text style={recordEntryType === 'INTEREST' ? styles.radioChipTextActive : styles.radioChipText}>이자</Text>
+                </Pressable>
+                <Pressable
                   style={[styles.radioChip, recordEntryType === 'PROFIT' && styles.radioChipActive]}
                   onPress={() => setRecordEntryType('PROFIT')}
                 >
@@ -431,10 +638,18 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
                 </Pressable>
               </View>
               <TextField
-                label={`${recordEntryType === 'DEPOSIT' ? '입금 금액' : '손익 금액'} (${account.type === 'INVEST' ? recordInputCurrency : 'KRW'})`}
+                label={`${
+                  recordEntryType === 'DEPOSIT'
+                    ? '입금 금액'
+                    : recordEntryType === 'WITHDRAW'
+                      ? '인출 금액'
+                      : recordEntryType === 'INTEREST'
+                        ? '이자 금액'
+                        : '손익 금액'
+                } (${account.type === 'INVEST' ? recordInputCurrency : 'KRW'})`}
                 value={amount}
                 onChangeText={setAmount}
-                placeholder={recordEntryType === 'DEPOSIT' ? '예: 300000' : '예: 120000'}
+                placeholder={recordEntryType === 'DEPOSIT' || recordEntryType === 'WITHDRAW' || recordEntryType === 'INTEREST' ? '예: 300000' : '예: 120000'}
               />
               {account.type === 'INVEST' ? (
                 <View style={styles.radioRow}>
@@ -486,6 +701,100 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
                   <PrimaryButton title="삭제" onPress={handleDeleteRecord} variant="danger" />
                 ) : null}
               </View>
+            </ScrollView>
+            </TouchableWithoutFeedback>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={interestCalcModalOpen} transparent animationType="slide" onRequestClose={() => setInterestCalcModalOpen(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <ScrollView contentContainerStyle={styles.modalContentContainer} keyboardShouldPersistTaps="handled">
+              <Pressable style={styles.modalCloseButton} onPress={() => setInterestCalcModalOpen(false)}>
+                <Text style={styles.modalCloseText}>X</Text>
+              </Pressable>
+              <Text style={styles.modalTitle}>이자 계산</Text>
+              <TextField
+                label="원금"
+                value={interestPrincipal}
+                onChangeText={setInterestPrincipal}
+                placeholder="예: 1000000"
+                keyboardType="numeric"
+              />
+              <TextField
+                label="연이율(%)"
+                value={interestRateInput}
+                onChangeText={setInterestRateInput}
+                placeholder="예: 3.5"
+                keyboardType="numeric"
+              />
+              <View style={styles.radioRow}>
+                <Pressable
+                  style={[styles.radioChip, interestType === 'SIMPLE' && styles.radioChipActive]}
+                  onPress={() => setInterestType('SIMPLE')}
+                >
+                  <Text style={interestType === 'SIMPLE' ? styles.radioChipTextActive : styles.radioChipText}>단리</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.radioChip, interestType === 'COMPOUND' && styles.radioChipActive]}
+                  onPress={() => setInterestType('COMPOUND')}
+                >
+                  <Text style={interestType === 'COMPOUND' ? styles.radioChipTextActive : styles.radioChipText}>월복리</Text>
+                </Pressable>
+              </View>
+              <View style={styles.dateField}>
+                <Text style={styles.dateFieldLabel}>시작일</Text>
+                <Pressable style={styles.dateButton} onPress={() => setShowInterestStartPicker(true)}>
+                  <Text style={styles.dateButtonText}>{interestStartDate}</Text>
+                </Pressable>
+              </View>
+              {showInterestStartPicker ? (
+                <DateTimePicker
+                  value={dayjs(interestStartDate).toDate()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                  onChange={(_, selectedDate) => {
+                    if (selectedDate) {
+                      setInterestStartDate(dayjs(selectedDate).format('YYYY-MM-DD'));
+                    }
+                    if (Platform.OS !== 'ios') {
+                      setShowInterestStartPicker(false);
+                    }
+                  }}
+                />
+              ) : null}
+              <View style={styles.dateField}>
+                <Text style={styles.dateFieldLabel}>종료일</Text>
+                <Pressable style={styles.dateButton} onPress={() => setShowInterestEndPicker(true)}>
+                  <Text style={styles.dateButtonText}>{interestEndDate}</Text>
+                </Pressable>
+              </View>
+              {showInterestEndPicker ? (
+                <DateTimePicker
+                  value={dayjs(interestEndDate).toDate()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                  onChange={(_, selectedDate) => {
+                    if (selectedDate) {
+                      setInterestEndDate(dayjs(selectedDate).format('YYYY-MM-DD'));
+                    }
+                    if (Platform.OS !== 'ios') {
+                      setShowInterestEndPicker(false);
+                    }
+                  }}
+                />
+              ) : null}
+              <View style={styles.modalActions}>
+                <PrimaryButton title="계산" onPress={handleCalculateInterest} variant="secondary" />
+                <PrimaryButton title="이자 기록" onPress={handleCommitInterest} variant="primary" />
+              </View>
+              {interestAmount !== null ? (
+                <Text style={styles.interestResultText}>
+                  예상 이자: {formatCurrencyAmount(interestAmount, account.type === 'SAVINGS' ? 'KRW' : account.currency ?? 'KRW')}
+                </Text>
+              ) : null}
             </ScrollView>
             </TouchableWithoutFeedback>
           </View>
@@ -603,6 +912,60 @@ const styles = StyleSheet.create({
     color: '#2563eb',
     fontSize: 13,
     fontWeight: '700',
+  },
+  addRecordGhostButton: {
+    borderWidth: 1,
+    borderColor: '#0f172a',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: '#0f172a',
+  },
+  addRecordGhostText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  maturityBanner: {
+    backgroundColor: '#fef3c7',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  maturityTitle: {
+    color: '#92400e',
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  maturityText: {
+    color: '#92400e',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  maturityButton: {
+    backgroundColor: '#92400e',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  maturityButtonText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  interestResultText: {
+    marginTop: 8,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0f172a',
   },
   listWrap: {
     backgroundColor: '#fff',

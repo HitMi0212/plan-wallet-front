@@ -17,6 +17,7 @@ jest.mock('../services/statsApi', () => ({
     { date: '2025-01-01', incomeTotal: 1000, expenseTotal: 0 },
     { date: '2025-01-02', incomeTotal: 0, expenseTotal: 500 },
   ]),
+  fetchPaymentMethodTotals: jest.fn(async () => [{ method: 'CASH', total: 500 }]),
 }));
 
 describe('statsStore', () => {
@@ -26,6 +27,7 @@ describe('statsStore', () => {
       comparison: null,
       categoryTotals: [],
       dailyTotals: [],
+      paymentMethodTotals: [],
       loading: false,
       error: null,
     });

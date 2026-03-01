@@ -27,4 +27,5 @@ export type RootStackParamList = {
     filter: CategoryType;
     title: string;
   };
+  RecurringManagement: undefined;
 };
