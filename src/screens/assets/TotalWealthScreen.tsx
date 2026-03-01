@@ -1,24 +1,14 @@
 import dayjs from 'dayjs';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { LineChart, PieChart } from 'react-native-chart-kit';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { fetchUsdKrwRate } from '../../services/exchangeRateApi';
-import {
-  AssetFlowAccount,
-  getLocalAssetFlowAccounts,
-  requireAuthenticatedUserId,
-} from '../../services/localDb';
+import { getLocalAssetFlowAccounts, requireAuthenticatedUserId } from '../../services/localDb';
 import { useTransactionStore } from '../../stores/transactionStore';
-
-const screenWidth = Dimensions.get('window').width;
-const chartWidth = screenWidth - 48;
 
 export function TotalWealthScreen() {
   const { items, load } = useTransactionStore();
-  const [accounts, setAccounts] = useState<AssetFlowAccount[]>([]);
-  const [usdKrwRate, setUsdKrwRate] = useState<number | null>(null);
   const [assetCurrentTotal, setAssetCurrentTotal] = useState(0);
   const [savingsCurrentTotal, setSavingsCurrentTotal] = useState(0);
   const [investCurrentTotal, setInvestCurrentTotal] = useState(0);
@@ -39,8 +29,6 @@ export function TotalWealthScreen() {
           getLocalAssetFlowAccounts(userId),
           fetchUsdKrwRate().catch(() => null),
         ]);
-        setAccounts(accounts);
-        setUsdKrwRate(usdKrwRate);
         let savingsTotal = 0;
         let investTotal = 0;
         const total = accounts.reduce((sum, account) => {
@@ -145,40 +133,6 @@ export function TotalWealthScreen() {
     return income - normalExpense;
   }, [items, thisMonth, depositTransactionIdSet]);
 
-  const assetTrend = useMemo(() => {
-    const months = Array.from({ length: 6 }).map((_, idx) =>
-      dayjs().subtract(5 - idx, 'month').startOf('month')
-    );
-    const data = months.map((month) => {
-      const monthEnd = month.endOf('month');
-      const total = accounts.reduce((sum, account) => {
-        const accountTotal = account.records.reduce((recordSum, record) => {
-          const occurred = dayjs(record.occurredAt);
-          if (occurred.isAfter(monthEnd)) return recordSum;
-          const kind = record.kind ?? 'DEPOSIT';
-          let amount = record.amount;
-          if (kind === 'WITHDRAW') amount = -Math.abs(record.amount);
-          if (kind === 'INTEREST') amount = Math.abs(record.amount);
-          return recordSum + amount;
-        }, 0);
-        const currency = account.currency ?? 'KRW';
-        if (currency === 'USD') {
-          return sum + Math.trunc(accountTotal * (usdKrwRate ?? 0));
-        }
-        return sum + Math.trunc(accountTotal);
-      }, 0);
-      return total;
-    });
-    return { labels: months.map((month) => month.format('M월')), data };
-  }, [accounts, usdKrwRate]);
-
-  const assetDistribution = useMemo(() => {
-    if (savingsCurrentTotal === 0 && investCurrentTotal === 0) return [];
-    return [
-      { name: '예적금', total: savingsCurrentTotal, color: '#0ea5e9', legendFontColor: '#334155', legendFontSize: 12 },
-      { name: '투자', total: investCurrentTotal, color: '#f97316', legendFontColor: '#334155', legendFontSize: 12 },
-    ].filter((item) => item.total > 0);
-  }, [savingsCurrentTotal, investCurrentTotal]);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
@@ -188,45 +142,6 @@ export function TotalWealthScreen() {
         <Text style={styles.assetFlowText}>
           예적금 {savingsCurrentTotal.toLocaleString()}원 · 투자 {investCurrentTotal.toLocaleString()}원
         </Text>
-      </View>
-
-      <View style={styles.chartCard}>
-        <Text style={styles.sectionTitle}>자산 추이</Text>
-        {assetTrend.data.every((value) => value === 0) ? (
-          <Text style={styles.helperText}>자산 데이터가 없습니다.</Text>
-        ) : (
-          <LineChart
-            data={{ labels: assetTrend.labels, datasets: [{ data: assetTrend.data }] }}
-            width={chartWidth}
-            height={220}
-            chartConfig={chartConfig}
-            bezier
-            style={styles.chartInner}
-          />
-        )}
-      </View>
-
-      <View style={styles.chartCard}>
-        <Text style={styles.sectionTitle}>자산 비중</Text>
-        {assetDistribution.length > 0 ? (
-          <PieChart
-            data={assetDistribution.map((item) => ({
-              name: item.name,
-              population: item.total,
-              color: item.color,
-              legendFontColor: item.legendFontColor,
-              legendFontSize: item.legendFontSize,
-            }))}
-            width={chartWidth}
-            height={220}
-            accessor="population"
-            chartConfig={chartConfig}
-            backgroundColor="transparent"
-            paddingLeft="8"
-          />
-        ) : (
-          <Text style={styles.helperText}>자산 비중 데이터가 없습니다.</Text>
-        )}
       </View>
 
       <View style={styles.card}>
@@ -250,14 +165,6 @@ export function TotalWealthScreen() {
     </ScrollView>
   );
 }
-
-const chartConfig = {
-  backgroundGradientFrom: '#ffffff',
-  backgroundGradientTo: '#ffffff',
-  color: (opacity = 1) => `rgba(15, 23, 42, ${opacity})`,
-  labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
-  decimalPlaces: 0,
-};
 
 const styles = StyleSheet.create({
   container: {
@@ -308,32 +215,6 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
-  },
-  chartCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    padding: 14,
-    gap: 6,
-    shadowColor: '#0f172a',
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  chartInner: {
-    borderRadius: 12,
-  },
-  helperText: {
-    color: '#64748b',
-    fontSize: 12,
-    fontWeight: '600',
   },
   label: {
     color: '#64748b',

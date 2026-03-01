@@ -4,7 +4,6 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   Alert,
-  Dimensions,
   Modal,
   Platform,
   Pressable,
@@ -13,7 +12,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { LineChart, PieChart } from 'react-native-chart-kit';
 
 import { EmptyState } from '../../components/EmptyState';
 import { PrimaryButton } from '../../components/PrimaryButton';
@@ -40,8 +38,6 @@ const currencyOptions: { label: string; value: AssetFlowCurrency }[] = [
   { label: '달러 (USD)', value: 'USD' },
 ];
 
-const screenWidth = Dimensions.get('window').width;
-const chartWidth = screenWidth - 48;
 
 function formatCurrencyAmount(amount: number, currency: AssetFlowCurrency) {
   const abs = Math.abs(amount).toLocaleString();
@@ -119,62 +115,6 @@ export function AssetFlowScreen({ navigation }: { navigation: any }) {
       { savings: 0, investKrw: 0, investUsd: 0 }
     );
   }, [accounts, usdKrwRate]);
-
-  const investmentTrend = useMemo(() => {
-    const investAccounts = accounts.filter((account) => account.type === 'INVEST');
-    const months = Array.from({ length: 6 }).map((_, idx) =>
-      dayjs().subtract(5 - idx, 'month').startOf('month')
-    );
-    const data = months.map((month) => {
-      const monthEnd = month.endOf('month');
-      const total = investAccounts.reduce((sum, account) => {
-        const accountCurrency = account.currency ?? 'KRW';
-        const accountTotal = account.records.reduce((acc, record) => {
-          const occurred = dayjs(record.occurredAt);
-          if (occurred.isAfter(monthEnd)) return acc;
-          const kind = record.kind ?? 'DEPOSIT';
-          let amount = record.amount;
-          if (kind === 'WITHDRAW') amount = -Math.abs(record.amount);
-          if (kind === 'INTEREST') amount = Math.abs(record.amount);
-          return acc + amount;
-        }, 0);
-        if (accountCurrency === 'USD') {
-          const rate = usdKrwRate ?? 0;
-          return sum + Math.trunc(accountTotal * rate);
-        }
-        return sum + Math.trunc(accountTotal);
-      }, 0);
-      return total;
-    });
-    return {
-      labels: months.map((month) => month.format('M월')),
-      data,
-    };
-  }, [accounts, usdKrwRate]);
-
-  const investmentDistribution = useMemo(() => {
-    const investAccounts = accounts.filter((account) => account.type === 'INVEST');
-    return investAccounts
-      .map((account, index) => {
-        const total = account.records.reduce((sum, record) => {
-          const kind = record.kind ?? 'DEPOSIT';
-          if (kind === 'WITHDRAW') return sum - Math.abs(record.amount);
-          if (kind === 'INTEREST') return sum + Math.abs(record.amount);
-          return sum + record.amount;
-        }, 0);
-        const accountCurrency = account.currency ?? 'KRW';
-        const normalizedTotal = accountCurrency === 'USD' ? Math.trunc(total * (usdKrwRate ?? 0)) : Math.trunc(total);
-        if (normalizedTotal === 0) return null;
-        return {
-          name: account.bankName,
-          total: normalizedTotal,
-          color: ['#0ea5e9', '#f97316', '#22c55e', '#a855f7', '#ef4444'][index % 5],
-          legendFontColor: '#334155',
-          legendFontSize: 12,
-        };
-      })
-      .filter((item): item is { name: string; total: number; color: string; legendFontColor: string; legendFontSize: number } => item !== null);
-  }, [accounts]);
 
   const resetForm = () => {
     setType('SAVINGS');
@@ -256,48 +196,6 @@ export function AssetFlowScreen({ navigation }: { navigation: any }) {
         >
           <Text style={styles.quickAddText}>새 상품 추가</Text>
         </Pressable>
-      </View>
-
-      <View style={styles.chartCard}>
-        <Text style={styles.sectionTitle}>투자 추이</Text>
-        {investmentTrend.data.every((value) => value === 0) ? (
-          <Text style={styles.helperText}>투자 데이터가 없습니다.</Text>
-        ) : (
-          <LineChart
-            data={{
-              labels: investmentTrend.labels,
-              datasets: [{ data: investmentTrend.data }],
-            }}
-            width={chartWidth}
-            height={220}
-            chartConfig={chartConfig}
-            bezier
-            style={styles.chartInner}
-          />
-        )}
-      </View>
-
-      <View style={styles.chartCard}>
-        <Text style={styles.sectionTitle}>투자 비중</Text>
-        {investmentDistribution.length > 0 ? (
-          <PieChart
-            data={investmentDistribution.map((item) => ({
-              name: item.name,
-              population: item.total,
-              color: item.color,
-              legendFontColor: item.legendFontColor,
-              legendFontSize: item.legendFontSize,
-            }))}
-            width={chartWidth}
-            height={220}
-            accessor="population"
-            chartConfig={chartConfig}
-            backgroundColor="transparent"
-            paddingLeft="8"
-          />
-        ) : (
-          <Text style={styles.helperText}>투자 비중 데이터가 없습니다.</Text>
-        )}
       </View>
 
       {accounts.length === 0 ? (
@@ -419,14 +317,6 @@ export function AssetFlowScreen({ navigation }: { navigation: any }) {
   );
 }
 
-const chartConfig = {
-  backgroundGradientFrom: '#ffffff',
-  backgroundGradientTo: '#ffffff',
-  color: (opacity = 1) => `rgba(15, 23, 42, ${opacity})`,
-  labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
-  decimalPlaces: 0,
-};
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -467,28 +357,6 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
-  },
-  chartCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    padding: 14,
-    marginBottom: 14,
-    shadowColor: '#0f172a',
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0f172a',
-    marginBottom: 8,
-  },
-  chartInner: {
-    borderRadius: 12,
   },
   savingsText: {
     color: '#0f172a',

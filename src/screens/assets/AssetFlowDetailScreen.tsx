@@ -475,9 +475,11 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
         <Pressable style={styles.addRecordButton} onPress={openAddRecordModal}>
           <Text style={styles.addRecordButtonText}>내역 추가</Text>
         </Pressable>
-        <Pressable style={styles.addRecordGhostButton} onPress={handleOpenInterestModal}>
-          <Text style={styles.addRecordGhostText}>이자 계산</Text>
-        </Pressable>
+        {account.type === 'SAVINGS' ? (
+          <Pressable style={styles.addRecordGhostButton} onPress={handleOpenInterestModal}>
+            <Text style={styles.addRecordGhostText}>이자 계산</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <View style={styles.listWrap}>

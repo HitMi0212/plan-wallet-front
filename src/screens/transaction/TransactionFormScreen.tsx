@@ -511,6 +511,7 @@ const styles = StyleSheet.create({
   typeHalfCard: {
     flex: 1,
     minHeight: 52,
+    maxHeight: 52,
     borderRadius: 12,
     borderWidth: 1,
     justifyContent: 'center',

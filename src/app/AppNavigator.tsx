@@ -1,8 +1,9 @@
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { BottomTabBar, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import dayjs from 'dayjs';
 import React, { useEffect } from 'react';
+import { StyleSheet, View } from 'react-native';
 
 import { TabIcon } from '../components/TabIcon';
 import { AssetFlowScreen } from '../screens/assets/AssetFlowScreen';
@@ -24,6 +25,7 @@ import { AuthStackParamList, MainTabParamList, RootStackParamList } from './rout
 const MainTabs = createBottomTabNavigator<MainTabParamList>();
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
+const BANNER_HEIGHT = 64;
 
 function MainTabNavigator() {
   const monthTitle = `${dayjs().year()}년 ${dayjs().month() + 1}월`;
@@ -38,6 +40,13 @@ function MainTabNavigator() {
   return (
     <MainTabs.Navigator
       initialRouteName="Home"
+      tabBar={(props) => (
+        <View>
+          <View style={styles.banner}>
+          </View>
+          <BottomTabBar {...props} />
+        </View>
+      )}
       screenOptions={({ route }) => ({
         headerTitle: route.name === 'Home' ? monthTitle : tabTitleMap[route.name as Exclude<keyof MainTabParamList, 'Home'>],
         headerTitleAlign: 'center',
@@ -138,3 +147,14 @@ export function AppNavigator() {
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  banner: {
+    height: BANNER_HEIGHT,
+    backgroundColor: '#fef3c7',
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
