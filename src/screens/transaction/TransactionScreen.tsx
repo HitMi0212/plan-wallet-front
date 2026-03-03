@@ -91,6 +91,17 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
         .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
     [items, selectedDate]
   );
+  const selectedDayTotals = useMemo(() => {
+    return sortedItems.reduce(
+      (acc, item) => {
+        if (item.type === 'INCOME') acc.income += item.amount;
+        if (item.type === 'EXPENSE') acc.expense += item.amount;
+        return acc;
+      },
+      { income: 0, expense: 0 }
+    );
+  }, [sortedItems]);
+  const hasSelectedDayTotals = selectedDayTotals.income > 0 || selectedDayTotals.expense > 0;
 
   const categoryMap = useMemo(() => {
     return new Map(categories.map((category) => [category.id, category]));
@@ -322,6 +333,16 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
         </View>
       </View>
       <View style={styles.listHeader}>
+        {hasSelectedDayTotals ? (
+          <View style={styles.dayTotalsRow}>
+            {selectedDayTotals.income > 0 ? (
+              <Text style={styles.dayIncomeText}>수입 {selectedDayTotals.income.toLocaleString()}원</Text>
+            ) : null}
+            {selectedDayTotals.expense > 0 ? (
+              <Text style={styles.dayExpenseText}>지출 {selectedDayTotals.expense.toLocaleString()}원</Text>
+            ) : null}
+          </View>
+        ) : null}
         <View style={styles.headerActions}>
           <Pressable
             style={styles.refreshButton}
@@ -606,9 +627,26 @@ const styles = StyleSheet.create({
   },
   listHeader: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
+  },
+  dayTotalsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexShrink: 1,
+    marginRight: 8,
+  },
+  dayIncomeText: {
+    color: '#dc2626',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  dayExpenseText: {
+    color: '#2563eb',
+    fontSize: 12,
+    fontWeight: '700',
   },
   headerActions: {
     flexDirection: 'row',
