@@ -171,13 +171,13 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
 
     return cells;
   }, [calendarMonth]);
-  const dayIndicators = useMemo(() => {
-    const map = new Map<string, { hasIncome: boolean; hasExpense: boolean }>();
+  const dayAmountMap = useMemo(() => {
+    const map = new Map<string, { income: number; expense: number }>();
     items.forEach((item) => {
       const key = dayjs(item.occurredAt).format('YYYY-MM-DD');
-      const prev = map.get(key) ?? { hasIncome: false, hasExpense: false };
-      if (item.type === 'INCOME') prev.hasIncome = true;
-      if (item.type === 'EXPENSE') prev.hasExpense = true;
+      const prev = map.get(key) ?? { income: 0, expense: 0 };
+      if (item.type === 'INCOME') prev.income += item.amount;
+      if (item.type === 'EXPENSE') prev.expense += item.amount;
       map.set(key, prev);
     });
     return map;
@@ -306,7 +306,7 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
             const isSelected = date.format('YYYY-MM-DD') === selectedDate.format('YYYY-MM-DD');
             const isToday = date.format('YYYY-MM-DD') === dayjs().format('YYYY-MM-DD');
             const isHoliday = date.day() === 0;
-            const indicator = dayIndicators.get(date.format('YYYY-MM-DD'));
+            const dayAmount = dayAmountMap.get(date.format('YYYY-MM-DD'));
             return (
               <Pressable
                 key={date.format('YYYY-MM-DD')}
@@ -323,9 +323,17 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
                 >
                   {date.date()}
                 </Text>
-                <View style={styles.dotRow}>
-                  {indicator?.hasIncome ? <View style={[styles.dot, styles.dotIncome]} /> : null}
-                  {indicator?.hasExpense ? <View style={[styles.dot, styles.dotExpense]} /> : null}
+                <View style={styles.dayAmountColumn}>
+                  {dayAmount && dayAmount.income > 0 ? (
+                    <Text style={styles.dayAmountIncome} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+                      {dayAmount.income.toLocaleString()}
+                    </Text>
+                  ) : null}
+                  {dayAmount && dayAmount.expense > 0 ? (
+                    <Text style={styles.dayAmountExpense} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+                      {dayAmount.expense.toLocaleString()}
+                    </Text>
+                  ) : null}
                 </View>
               </Pressable>
             );
@@ -668,17 +676,11 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   calendarCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    padding: 14,
+    marginHorizontal: -24,
+    paddingHorizontal: 24,
+    paddingBottom: 10,
     marginBottom: 12,
-    shadowColor: '#0f172a',
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    backgroundColor: '#ffffff',
   },
   calendarHeader: {
     flexDirection: 'row',
@@ -720,11 +722,12 @@ const styles = StyleSheet.create({
   },
   dayCell: {
     width: '14.285%',
-    height: 42,
+    minHeight: 58,
     alignItems: 'center',
     justifyContent: 'flex-start',
     borderRadius: 8,
-    paddingTop: 6,
+    paddingTop: 4,
+    paddingHorizontal: 1,
   },
   dayCellSelected: {
     backgroundColor: '#dbeafe',
@@ -748,23 +751,26 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
-  dotRow: {
-    marginTop: 2,
-    flexDirection: 'row',
-    gap: 3,
-    height: 6,
+  dayAmountColumn: {
+    marginTop: 1,
+    minHeight: 22,
+    width: '100%',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  dot: {
-    width: 5,
-    height: 5,
-    borderRadius: 999,
+  dayAmountIncome: {
+    color: '#dc2626',
+    fontSize: 8.5,
+    fontWeight: '700',
+    lineHeight: 11,
+    textAlign: 'center',
   },
-  dotIncome: {
-    backgroundColor: '#dc2626',
-  },
-  dotExpense: {
-    backgroundColor: '#2563eb',
+  dayAmountExpense: {
+    color: '#2563eb',
+    fontSize: 8.5,
+    fontWeight: '700',
+    lineHeight: 11,
+    textAlign: 'center',
   },
   listItem: {
     backgroundColor: '#fff',

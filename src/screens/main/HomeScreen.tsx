@@ -395,6 +395,9 @@ export function HomeScreen({ navigation }: { navigation: any }) {
   const budgetProgress = monthlyBudgetAmount && monthlyBudgetAmount > 0
     ? Math.min(expenseTotal / monthlyBudgetAmount, 1)
     : 0;
+  const budgetOverProgress = monthlyBudgetAmount && monthlyBudgetAmount > 0 && expenseTotal > monthlyBudgetAmount
+    ? Math.min((expenseTotal - monthlyBudgetAmount) / monthlyBudgetAmount, 1)
+    : 0;
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -476,9 +479,13 @@ export function HomeScreen({ navigation }: { navigation: any }) {
             <Text style={styles.budgetAmount}>{masked(monthlyBudgetAmount)}</Text>
             <View style={styles.budgetBar}>
               <View style={[styles.budgetBarFill, { width: `${Math.round(budgetProgress * 100)}%` }]} />
+              {budgetOverProgress > 0 ? (
+                <View style={[styles.budgetBarOverFill, { width: `${Math.round(budgetOverProgress * 100)}%` }]} />
+              ) : null}
             </View>
             <Text style={styles.budgetMeta}>
               사용 {masked(expenseTotal)} · 잔여 {masked(Math.max(monthlyBudgetAmount - expenseTotal, 0))}
+              {expenseTotal > monthlyBudgetAmount ? ` · 초과 ${masked(expenseTotal - monthlyBudgetAmount)}` : ''}
             </Text>
           </>
         ) : (
@@ -905,6 +912,13 @@ const styles = StyleSheet.create({
   budgetBarFill: {
     height: '100%',
     backgroundColor: '#16a34a',
+  },
+  budgetBarOverFill: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: '#dc2626',
   },
   budgetMeta: {
     color: '#475569',
