@@ -352,6 +352,7 @@ export function TransactionFormScreen() {
               value={dayjs(occurredDateInput).isValid() ? dayjs(occurredDateInput).toDate() : new Date()}
               mode="date"
               display={Platform.OS === 'ios' ? 'inline' : 'default'}
+              themeVariant="light"
               onChange={(_, selectedDate) => {
                 if (selectedDate) {
                   setOccurredDateInput(dayjs(selectedDate).format('YYYY-MM-DD'));

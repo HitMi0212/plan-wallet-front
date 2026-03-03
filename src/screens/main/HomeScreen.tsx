@@ -678,6 +678,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
               value={dayjs(occurredDateInput).isValid() ? dayjs(occurredDateInput).toDate() : new Date()}
               mode="date"
               display={Platform.OS === 'ios' ? 'inline' : 'default'}
+              themeVariant="light"
               onChange={(_, selectedDate) => {
                 if (selectedDate) {
                   setOccurredDateInput(dayjs(selectedDate).format('YYYY-MM-DD'));

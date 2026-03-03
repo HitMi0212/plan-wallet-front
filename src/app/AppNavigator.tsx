@@ -151,7 +151,7 @@ export function AppNavigator() {
 const styles = StyleSheet.create({
   banner: {
     height: BANNER_HEIGHT,
-    backgroundColor: '#fef3c7',
+    backgroundColor: 'transparent',
     borderTopWidth: 1,
     borderTopColor: '#e2e8f0',
     alignItems: 'center',

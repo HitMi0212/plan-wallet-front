@@ -496,6 +496,7 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
               value={dayjs(detailOccurredDateInput).isValid() ? dayjs(detailOccurredDateInput).toDate() : new Date()}
               mode="date"
               display={Platform.OS === 'ios' ? 'inline' : 'default'}
+              themeVariant="light"
               onChange={(_, selectedDate) => {
                 if (selectedDate) {
                   setDetailOccurredDateInput(dayjs(selectedDate).format('YYYY-MM-DD'));
