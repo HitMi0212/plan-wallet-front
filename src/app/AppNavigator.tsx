@@ -2,10 +2,11 @@ import { BottomTabBar, createBottomTabNavigator } from '@react-navigation/bottom
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import dayjs from 'dayjs';
-import React, { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { TabIcon } from '../components/TabIcon';
+import { BannerAd, fetchHomeBannerAd } from '../services/adClient';
 import { AssetFlowScreen } from '../screens/assets/AssetFlowScreen';
 import { AssetFlowDetailScreen } from '../screens/assets/AssetFlowDetailScreen';
 import { TotalWealthScreen } from '../screens/assets/TotalWealthScreen';
@@ -25,10 +26,10 @@ import { AuthStackParamList, MainTabParamList, RootStackParamList } from './rout
 const MainTabs = createBottomTabNavigator<MainTabParamList>();
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
-const BANNER_HEIGHT = 64;
 
 function MainTabNavigator() {
   const monthTitle = `${dayjs().year()}년 ${dayjs().month() + 1}월`;
+  const [homeBannerAd, setHomeBannerAd] = useState<BannerAd | null>(null);
   const tabTitleMap: Record<Exclude<keyof MainTabParamList, 'Home'>, string> = {
     Transactions: '거래',
     AssetFlows: '예적금/투자',
@@ -37,13 +38,63 @@ function MainTabNavigator() {
     Settings: '설정',
   };
 
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const ad = await fetchHomeBannerAd();
+      if (!mounted) return;
+      setHomeBannerAd(ad);
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   return (
     <MainTabs.Navigator
       initialRouteName="Home"
       tabBar={(props) => (
         <View>
-          <View style={styles.banner}>
-          </View>
+          {props.state.routes[props.state.index]?.name === 'Home' && homeBannerAd ? (
+            <Pressable
+              style={[
+                styles.banner,
+                homeBannerAd.backgroundColor ? { backgroundColor: homeBannerAd.backgroundColor } : null,
+              ]}
+              onPress={() => {
+                if (!homeBannerAd.linkUrl) return;
+                Linking.openURL(homeBannerAd.linkUrl).catch(() => {});
+              }}
+              disabled={!homeBannerAd.linkUrl}
+            >
+              {homeBannerAd.imageUrl ? (
+                <Image source={{ uri: homeBannerAd.imageUrl }} style={styles.bannerImage} resizeMode="cover" />
+              ) : (
+                <View style={styles.bannerTextWrap}>
+                  <Text
+                    style={[
+                      styles.bannerTitle,
+                      homeBannerAd.textColor ? { color: homeBannerAd.textColor } : null,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {homeBannerAd.title}
+                  </Text>
+                  {homeBannerAd.description ? (
+                    <Text
+                      style={[
+                        styles.bannerDescription,
+                        homeBannerAd.textColor ? { color: homeBannerAd.textColor } : null,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {homeBannerAd.description}
+                    </Text>
+                  ) : null}
+                </View>
+              )}
+            </Pressable>
+          ) : null}
           <BottomTabBar {...props} />
         </View>
       )}
@@ -150,11 +201,30 @@ export function AppNavigator() {
 
 const styles = StyleSheet.create({
   banner: {
-    height: BANNER_HEIGHT,
+    height: 64,
     backgroundColor: 'transparent',
     borderTopWidth: 1,
     borderTopColor: '#e2e8f0',
-    alignItems: 'center',
+    overflow: 'hidden',
     justifyContent: 'center',
+  },
+  bannerImage: {
+    width: '100%',
+    height: '100%',
+  },
+  bannerTextWrap: {
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+  },
+  bannerTitle: {
+    color: '#0f172a',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  bannerDescription: {
+    marginTop: 2,
+    color: '#334155',
+    fontWeight: '600',
+    fontSize: 12,
   },
 });
