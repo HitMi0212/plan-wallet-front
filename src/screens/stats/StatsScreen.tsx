@@ -177,16 +177,20 @@ export function StatsScreen() {
       ) : null}
 
       {monthly ? (
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>{year}년 {month}월 최대 지출일</Text>
-          <View style={styles.monthSummaryRow}>
-            <Text style={styles.summaryText}>
-              수입 <Text style={styles.incomeSummaryAmount}>{monthly.incomeTotal.toLocaleString()}원</Text>
-            </Text>
-            <Text style={styles.summaryText}>
-              지출 <Text style={styles.expenseSummaryAmount}>{monthly.expenseTotal.toLocaleString()}원</Text>
-            </Text>
+        <>
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>{year}년 {month}월 합계</Text>
+            <View style={styles.monthSummaryRow}>
+              <Text style={styles.summaryText}>
+                수입 <Text style={styles.incomeSummaryAmount}>{monthly.incomeTotal.toLocaleString()}원</Text>
+              </Text>
+              <Text style={styles.summaryText}>
+                지출 <Text style={styles.expenseSummaryAmount}>{monthly.expenseTotal.toLocaleString()}원</Text>
+              </Text>
+            </View>
           </View>
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>{year}년 {month}월 최대 지출일</Text>
           {maxExpenseDaySummary ? (
             <View style={styles.maxExpenseCard}>
               <Text style={styles.maxExpenseDate}>{maxExpenseDaySummary.date}</Text>
@@ -203,7 +207,8 @@ export function StatsScreen() {
           ) : (
             <Text style={styles.helperText}>선택한 달의 지출 내역이 없습니다.</Text>
           )}
-        </View>
+          </View>
+        </>
       ) : null}
 
       <View style={styles.card}>
