@@ -12,7 +12,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 
@@ -205,6 +204,7 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
   };
 
   const closeDetailModal = () => {
+    setShowDetailOccurredDateModal(false);
     setDetailModalVisible(false);
     setSelectedTransaction(null);
   };
@@ -387,7 +387,11 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
                 <Text style={styles.itemMeta}>
                   {dayjs(item.occurredAt).format('YYYY-MM-DD')}
                 </Text>
-                {displayMemo ? <Text style={styles.itemMemo}>{displayMemo}</Text> : null}
+                {displayMemo ? (
+                  <Text style={styles.itemMemo} numberOfLines={2} ellipsizeMode="tail">
+                    {displayMemo}
+                  </Text>
+                ) : null}
               </Pressable>
               {!assetFlowManagedTransactionIds.has(item.id) ? (
                 <Pressable
@@ -412,8 +416,12 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
               </Pressable>
             </View>
             {selectedTransaction ? (
-              <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-                <View style={styles.detailRows}>
+              <ScrollView
+                style={styles.detailScroll}
+                contentContainerStyle={styles.detailRows}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
                   <View style={styles.typeRow}>
                     {typeOptions.map((option) => (
                       <Pressable
@@ -494,10 +502,48 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
                   />
                   <View style={styles.dateField}>
                     <Text style={styles.dateFieldLabel}>발생일</Text>
-                    <Pressable style={styles.dateInputButton} onPress={() => setShowDetailOccurredDateModal(true)}>
+                    <Pressable
+                      style={styles.dateInputButton}
+                      onPress={() => {
+                        Keyboard.dismiss();
+                        setShowDetailOccurredDateModal((prev) => !prev);
+                      }}
+                    >
                       <Text style={styles.dateInputText}>{detailOccurredDateInput}</Text>
                     </Pressable>
                   </View>
+                  {showDetailOccurredDateModal ? (
+                    <View style={styles.inlineDatePickerWrap}>
+                      <DateTimePicker
+                        value={dayjs(detailOccurredDateInput).isValid() ? dayjs(detailOccurredDateInput).toDate() : new Date()}
+                        mode="date"
+                        display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                        themeVariant="light"
+                        onChange={(_, selectedDate) => {
+                          if (selectedDate) {
+                            setDetailOccurredDateInput(dayjs(selectedDate).format('YYYY-MM-DD'));
+                            if (Platform.OS !== 'ios') {
+                              setShowDetailOccurredDateModal(false);
+                            }
+                            return;
+                          }
+                          if (Platform.OS !== 'ios') {
+                            setShowDetailOccurredDateModal(false);
+                          }
+                        }}
+                      />
+                      {Platform.OS === 'ios' ? (
+                        <View style={styles.inlineDatePickerActions}>
+                          <Pressable
+                            style={[styles.actionButton, styles.detailActionButton]}
+                            onPress={() => setShowDetailOccurredDateModal(false)}
+                          >
+                            <Text style={[styles.actionText, styles.detailActionText]}>닫기</Text>
+                          </Pressable>
+                        </View>
+                      ) : null}
+                    </View>
+                  ) : null}
                   <View style={styles.detailActions}>
                     <Pressable style={[styles.actionButton, styles.detailActionButton]} onPress={handleSaveFromDetail}>
                       <Text style={[styles.actionText, styles.detailActionText]}>저장</Text>
@@ -506,37 +552,8 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
                       <Text style={[styles.actionText, styles.deleteActionText, styles.detailActionText]}>삭제</Text>
                     </Pressable>
                   </View>
-                </View>
-              </TouchableWithoutFeedback>
+              </ScrollView>
             ) : null}
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <Modal
-        visible={showDetailOccurredDateModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowDetailOccurredDateModal(false)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setShowDetailOccurredDateModal(false)}>
-          <Pressable style={styles.datePickerCard} onPress={(event) => event.stopPropagation()}>
-            <DateTimePicker
-              value={dayjs(detailOccurredDateInput).isValid() ? dayjs(detailOccurredDateInput).toDate() : new Date()}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'inline' : 'default'}
-              themeVariant="light"
-              onChange={(_, selectedDate) => {
-                if (selectedDate) {
-                  setDetailOccurredDateInput(dayjs(selectedDate).format('YYYY-MM-DD'));
-                  setShowDetailOccurredDateModal(false);
-                  return;
-                }
-                if (Platform.OS !== 'ios') {
-                  setShowDetailOccurredDateModal(false);
-                }
-              }}
-            />
           </Pressable>
         </Pressable>
       </Modal>
@@ -549,7 +566,9 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 0,
+    paddingBottom: 24,
     backgroundColor: '#f8fafc',
   },
   typeRow: {
@@ -677,10 +696,13 @@ const styles = StyleSheet.create({
   },
   calendarCard: {
     marginHorizontal: -24,
+    paddingTop: 24,
     paddingHorizontal: 24,
     paddingBottom: 10,
-    marginBottom: 12,
+    marginBottom: 14,
     backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
   },
   calendarHeader: {
     flexDirection: 'row',
@@ -925,11 +947,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e2e8f0',
     padding: 16,
+    maxHeight: '85%',
     shadowColor: '#0f172a',
     shadowOpacity: 0.12,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 8 },
     elevation: 5,
+  },
+  detailScroll: {
+    maxHeight: '100%',
   },
   detailTitle: {
     color: '#0f172a',
@@ -939,6 +965,17 @@ const styles = StyleSheet.create({
   detailRows: {
     gap: 8,
     marginTop: 8,
+  },
+  inlineDatePickerWrap: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    padding: 8,
+    backgroundColor: '#ffffff',
+  },
+  inlineDatePickerActions: {
+    marginTop: 4,
+    alignItems: 'flex-end',
   },
   detailActions: {
     flexDirection: 'row',

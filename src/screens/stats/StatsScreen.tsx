@@ -117,29 +117,41 @@ export function StatsScreen() {
     const dayItems = monthExpenseItems.filter(
       (item) => dayjs(item.occurredAt).format('YYYY-MM-DD') === maxDay
     );
-    const categoryTotalMap = new Map<number, number>();
+    const categoryTotalMap = new Map<string, { categoryId: number; categoryName: string; categoryAmount: number }>();
     dayItems.forEach((item) => {
-      categoryTotalMap.set(item.categoryId, (categoryTotalMap.get(item.categoryId) ?? 0) + item.amount);
+      const categoryName =
+        item.categoryName ??
+        expenseCategoryMap.get(item.categoryId) ??
+        (item.categoryId > 0 ? `카테고리 ${item.categoryId}` : '미분류');
+      const key = item.categoryId > 0 ? `id:${item.categoryId}` : `name:${categoryName}`;
+      const prev = categoryTotalMap.get(key);
+      if (prev) {
+        prev.categoryAmount += item.amount;
+        return;
+      }
+      categoryTotalMap.set(key, {
+        categoryId: item.categoryId,
+        categoryName,
+        categoryAmount: item.amount,
+      });
     });
-    const categoryItems = [...categoryTotalMap.entries()]
-      .map(([categoryId, categoryAmount]) => ({
-        categoryId,
-        categoryAmount,
-        categoryName: expenseCategoryMap.get(categoryId) ?? `카테고리 ${categoryId}`,
-      }))
+    const categoryItems = [...categoryTotalMap.values()]
       .sort((a, b) => b.categoryAmount - a.categoryAmount);
     if (categoryItems.length === 0) {
       return {
         date: maxDay,
         total: maxDayTotal,
-        categories: [] as Array<{ categoryId: number; categoryName: string; categoryAmount: number }>,
+        categories: [] as Array<{ categoryId: number; categoryName: string; categoryAmount: number; key: string }>,
       };
     }
 
     return {
       date: maxDay,
       total: maxDayTotal,
-      categories: categoryItems,
+      categories: categoryItems.map((item) => ({
+        ...item,
+        key: item.categoryId > 0 ? `id:${item.categoryId}` : `name:${item.categoryName}`,
+      })),
     };
   }, [transactions, year, month, expenseCategoryMap]);
 
@@ -179,7 +191,7 @@ export function StatsScreen() {
             <View style={styles.maxExpenseCard}>
               <Text style={styles.maxExpenseDate}>{maxExpenseDaySummary.date}</Text>
               {maxExpenseDaySummary.categories.map((item) => (
-                <View key={item.categoryId} style={styles.maxExpenseRow}>
+                <View key={item.key} style={styles.maxExpenseRow}>
                   <Text style={styles.maxExpenseCategory}>{item.categoryName}</Text>
                   <Text style={styles.maxExpenseAmount}>{item.categoryAmount.toLocaleString()}원</Text>
                 </View>
