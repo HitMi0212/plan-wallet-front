@@ -564,6 +564,7 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
                   value={dayjs(maturityDateInput || dayjs().format('YYYY-MM-DD')).toDate()}
                   mode="date"
                   display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                  themeVariant="light"
                   onChange={(_, selectedDate) => {
                     if (selectedDate) {
                       setMaturityDateInput(dayjs(selectedDate).format('YYYY-MM-DD'));
@@ -687,6 +688,7 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
                   value={occurredDate}
                   mode="date"
                   display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                  themeVariant="light"
                   onChange={(_, selectedDate) => {
                     if (selectedDate) {
                       setOccurredAt(dayjs(selectedDate).toISOString());
@@ -757,6 +759,7 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
                   value={dayjs(interestStartDate).toDate()}
                   mode="date"
                   display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                  themeVariant="light"
                   onChange={(_, selectedDate) => {
                     if (selectedDate) {
                       setInterestStartDate(dayjs(selectedDate).format('YYYY-MM-DD'));
@@ -778,6 +781,7 @@ export function AssetFlowDetailScreen({ navigation, route }: Props) {
                   value={dayjs(interestEndDate).toDate()}
                   mode="date"
                   display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                  themeVariant="light"
                   onChange={(_, selectedDate) => {
                     if (selectedDate) {
                       setInterestEndDate(dayjs(selectedDate).format('YYYY-MM-DD'));

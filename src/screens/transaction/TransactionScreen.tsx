@@ -325,12 +325,12 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
                 </Text>
                 <View style={styles.dayAmountColumn}>
                   {dayAmount && dayAmount.income > 0 ? (
-                    <Text style={styles.dayAmountIncome} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+                    <Text style={styles.dayAmountIncome} numberOfLines={1} ellipsizeMode="tail">
                       {dayAmount.income.toLocaleString()}
                     </Text>
                   ) : null}
                   {dayAmount && dayAmount.expense > 0 ? (
-                    <Text style={styles.dayAmountExpense} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+                    <Text style={styles.dayAmountExpense} numberOfLines={1} ellipsizeMode="tail">
                       {dayAmount.expense.toLocaleString()}
                     </Text>
                   ) : null}
@@ -782,16 +782,16 @@ const styles = StyleSheet.create({
   },
   dayAmountIncome: {
     color: '#dc2626',
-    fontSize: 8.5,
+    fontSize: 9.5,
     fontWeight: '700',
-    lineHeight: 11,
+    lineHeight: 12,
     textAlign: 'center',
   },
   dayAmountExpense: {
     color: '#2563eb',
-    fontSize: 8.5,
+    fontSize: 9.5,
     fontWeight: '700',
-    lineHeight: 11,
+    lineHeight: 12,
     textAlign: 'center',
   },
   listItem: {

@@ -295,6 +295,7 @@ export function AssetFlowScreen({ navigation }: { navigation: any }) {
                   value={occurredDate}
                   mode="date"
                   display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                  themeVariant="light"
                   onChange={(_, selectedDate) => {
                     if (selectedDate) {
                       setOccurredAt(dayjs(selectedDate).toISOString());
