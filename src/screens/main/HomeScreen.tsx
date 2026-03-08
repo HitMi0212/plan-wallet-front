@@ -707,8 +707,9 @@ export function HomeScreen({ navigation }: { navigation: any }) {
         animationType="fade"
         onRequestClose={closeDetailModal}
       >
-        <Pressable style={styles.modalBackdrop} onPress={closeDetailModal}>
-          <Pressable style={styles.modalCard} onPress={() => {}}>
+        <View style={styles.modalBackdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeDetailModal} />
+          <View style={styles.modalCard}>
             <View style={styles.detailHeader}>
               <Text style={styles.modalTitle}>
                 {monthLabel} {detailModalType === 'INCOME' ? '수입' : '지출'} 상세
@@ -720,7 +721,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
             {detailItems.length === 0 ? (
               <Text style={styles.helperText}>해당 내역이 없습니다.</Text>
             ) : (
-              <ScrollView style={styles.detailList} nestedScrollEnabled>
+              <ScrollView style={styles.detailList} nestedScrollEnabled keyboardShouldPersistTaps="handled">
                 {detailItems.map((item) => (
                   <View key={item.id} style={styles.detailRow}>
                     <View>
@@ -737,8 +738,8 @@ export function HomeScreen({ navigation }: { navigation: any }) {
                 ))}
               </ScrollView>
             )}
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
 
       <Modal visible={budgetModalOpen} transparent animationType="fade" onRequestClose={closeBudgetModal}>
@@ -1088,7 +1089,7 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     width: '100%',
-    maxHeight: 420,
+    maxHeight: '85%',
     borderRadius: 14,
     backgroundColor: '#fff',
     padding: 14,
@@ -1131,7 +1132,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   detailList: {
-    maxHeight: 280,
+    maxHeight: 224,
   },
   detailRow: {
     flexDirection: 'row',
