@@ -2,6 +2,7 @@ import dayjs from 'dayjs';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   Alert,
   FlatList,
@@ -442,12 +443,15 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
           return (
             <View style={styles.listItem}>
               <Pressable style={styles.itemContent} onPress={() => openDetailModal(item)}>
-              <Text style={styles.itemNameBase}>
-                {getCategoryName(item)}{' '}
-                <Text style={item.type === 'EXPENSE' ? styles.itemAmountExpense : styles.itemAmountIncome}>
-                  {item.amount.toLocaleString()}원
-                </Text>
-                </Text>
+                <View style={styles.itemTitleRow}>
+                  <Text style={styles.itemNameBase}>{getCategoryName(item)}</Text>
+                  <Text style={item.type === 'EXPENSE' ? styles.itemAmountExpense : styles.itemAmountIncome}>
+                    {item.amount.toLocaleString()}원
+                  </Text>
+                  {item.recurringRuleId ? (
+                    <MaterialCommunityIcons name="autorenew" size={14} color="#64748b" style={styles.recurringIcon} />
+                  ) : null}
+                </View>
                 <Text style={styles.itemMeta}>
                   {dayjs(item.occurredAt).format('YYYY-MM-DD')}
                 </Text>
@@ -954,11 +958,17 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingRight: 10,
   },
+  itemTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
   itemNameBase: {
     fontSize: 16,
     fontWeight: '700',
-    marginBottom: 4,
     color: '#0f172a',
+    flexShrink: 1,
   },
   itemAmountIncome: {
     fontSize: 16,
@@ -969,6 +979,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#2563eb',
+  },
+  recurringIcon: {
+    marginLeft: 2,
   },
   itemMeta: {
     fontSize: 12,
