@@ -19,7 +19,14 @@ import { EmptyState } from '../../components/EmptyState';
 import { ErrorBanner } from '../../components/ErrorBanner';
 import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { TextField } from '../../components/TextField';
-import { getLocalAssetFlowAccounts, requireAuthenticatedUserId } from '../../services/localDb';
+import {
+  createLocalRecurringRule,
+  deleteLocalRecurringRule,
+  getLocalAssetFlowAccounts,
+  getLocalRecurringRules,
+  RecurringFrequency,
+  requireAuthenticatedUserId,
+} from '../../services/localDb';
 import { PaymentMethod, Transaction, TransactionType } from '../../services/transactionApi';
 import { useCategoryStore } from '../../stores/categoryStore';
 import { useTransactionStore } from '../../stores/transactionStore';
@@ -27,6 +34,11 @@ import { useTransactionStore } from '../../stores/transactionStore';
 const typeOptions: { label: string; value: TransactionType }[] = [
   { label: '지출', value: 'EXPENSE' },
   { label: '수입', value: 'INCOME' },
+];
+const recurringFrequencyOptions: Array<{ label: string; value: RecurringFrequency }> = [
+  { label: '매주', value: 'WEEKLY' },
+  { label: '매월', value: 'MONTHLY' },
+  { label: '매년', value: 'YEARLY' },
 ];
 
 export function TransactionScreen({ navigation }: { navigation?: any }) {
@@ -46,8 +58,12 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
   const [detailOccurredDateInput, setDetailOccurredDateInput] = useState(dayjs().format('YYYY-MM-DD'));
   const [showDetailOccurredDateModal, setShowDetailOccurredDateModal] = useState(false);
   const [detailPaymentMethod, setDetailPaymentMethod] = useState<PaymentMethod>('CASH');
+  const [detailIncludeInBudget, setDetailIncludeInBudget] = useState(true);
+  const [detailRepeatEnabled, setDetailRepeatEnabled] = useState(false);
+  const [detailRepeatFrequency, setDetailRepeatFrequency] = useState<RecurringFrequency>('MONTHLY');
   const [assetFlowManagedTransactionIds, setAssetFlowManagedTransactionIds] = useState<Set<number>>(new Set());
   const [assetFlowMemoPrefixMap, setAssetFlowMemoPrefixMap] = useState<Map<number, string>>(new Map());
+  const [recurringRuleMap, setRecurringRuleMap] = useState<Map<number, RecurringFrequency>>(new Map());
 
   useEffect(() => {
     load();
@@ -65,7 +81,10 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
       loadCategories();
       (async () => {
         const userId = await requireAuthenticatedUserId();
-        const accounts = await getLocalAssetFlowAccounts(userId);
+        const [accounts, recurringRules] = await Promise.all([
+          getLocalAssetFlowAccounts(userId),
+          getLocalRecurringRules(userId),
+        ]);
         const ids = new Set<number>();
         const prefixMap = new Map<number, string>();
         accounts.forEach((account) => {
@@ -79,6 +98,7 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
         });
         setAssetFlowManagedTransactionIds(ids);
         setAssetFlowMemoPrefixMap(prefixMap);
+        setRecurringRuleMap(new Map(recurringRules.map((rule) => [rule.id, rule.frequency])));
       })();
     }, [load, loadCategories])
   );
@@ -200,6 +220,10 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
     setDetailMemo(item.memo ?? '');
     setDetailOccurredDateInput(dayjs(item.occurredAt).format('YYYY-MM-DD'));
     setDetailPaymentMethod(item.paymentMethod ?? 'CASH');
+    setDetailIncludeInBudget(item.includeInBudget !== false);
+    const repeatFrequency = item.recurringRuleId ? recurringRuleMap.get(item.recurringRuleId) : undefined;
+    setDetailRepeatEnabled(Boolean(item.recurringRuleId && repeatFrequency));
+    setDetailRepeatFrequency(repeatFrequency ?? 'MONTHLY');
     setDetailModalVisible(true);
   };
 
@@ -226,14 +250,54 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
       Alert.alert('입력 오류', '발생일은 YYYY-MM-DD 형식으로 입력해 주세요.');
       return;
     }
+    const userId = await requireAuthenticatedUserId();
+    const previousRecurringRuleId = selectedTransaction.recurringRuleId ?? null;
+    let nextRecurringRuleId: number | null = null;
+    if (detailRepeatEnabled) {
+      if (!dayjs(detailOccurredDateInput, 'YYYY-MM-DD', true).isValid()) {
+        Alert.alert('입력 오류', '반복 거래 시작일은 YYYY-MM-DD 형식이어야 합니다.');
+        return;
+      }
+      if (previousRecurringRuleId) {
+        await deleteLocalRecurringRule(userId, previousRecurringRuleId);
+      }
+      const baseDate = dayjs(detailOccurredDateInput, 'YYYY-MM-DD');
+      const createdRule = await createLocalRecurringRule(userId, {
+        type: detailType,
+        amount: parsedAmount,
+        categoryId: parsedCategory,
+        paymentMethod: detailType === 'EXPENSE' ? detailPaymentMethod : null,
+        memo: detailMemo.trim() || null,
+        startDate: detailOccurredDateInput,
+        endDate: null,
+        frequency: detailRepeatFrequency,
+        dayOfWeek: detailRepeatFrequency === 'WEEKLY' ? baseDate.day() : undefined,
+        dayOfMonth: detailRepeatFrequency === 'MONTHLY' || detailRepeatFrequency === 'YEARLY' ? baseDate.date() : undefined,
+        monthOfYear: detailRepeatFrequency === 'YEARLY' ? baseDate.month() + 1 : undefined,
+      });
+      nextRecurringRuleId = createdRule.id;
+    } else if (previousRecurringRuleId) {
+      await deleteLocalRecurringRule(userId, previousRecurringRuleId);
+    }
+
     await update(selectedTransaction.id, {
       type: detailType,
       amount: parsedAmount,
       categoryId: parsedCategory,
       memo: detailMemo.trim() || null,
       paymentMethod: detailType === 'EXPENSE' ? detailPaymentMethod : null,
+      includeInBudget: detailType === 'EXPENSE' ? detailIncludeInBudget : true,
+      recurringRuleId: nextRecurringRuleId,
       occurredAt: parsedOccurredAt,
     });
+    const nextMap = new Map(recurringRuleMap);
+    if (previousRecurringRuleId) {
+      nextMap.delete(previousRecurringRuleId);
+    }
+    if (nextRecurringRuleId) {
+      nextMap.set(nextRecurringRuleId, detailRepeatFrequency);
+    }
+    setRecurringRuleMap(nextMap);
     closeDetailModal();
   };
 
@@ -463,8 +527,51 @@ export function TransactionScreen({ navigation }: { navigation?: any }) {
                           </Pressable>
                         ))}
                       </View>
+                      <View style={styles.detailToggleRow}>
+                        <Text style={styles.detailToggleLabel}>예산 포함</Text>
+                        <Pressable
+                          style={[styles.detailToggleButton, detailIncludeInBudget && styles.detailToggleButtonActive]}
+                          onPress={() => setDetailIncludeInBudget((prev) => !prev)}
+                        >
+                          <Text
+                            style={detailIncludeInBudget ? styles.detailToggleTextActive : styles.detailToggleText}
+                          >
+                            {detailIncludeInBudget ? '포함' : '제외'}
+                          </Text>
+                        </Pressable>
+                      </View>
                     </View>
                   ) : null}
+                  <View style={styles.detailSection}>
+                    <View style={styles.detailToggleRow}>
+                      <Text style={styles.detailToggleLabel}>반복 거래</Text>
+                      <Pressable
+                        style={[styles.detailToggleButton, detailRepeatEnabled && styles.detailToggleButtonActive]}
+                        onPress={() => setDetailRepeatEnabled((prev) => !prev)}
+                      >
+                        <Text style={detailRepeatEnabled ? styles.detailToggleTextActive : styles.detailToggleText}>
+                          {detailRepeatEnabled ? '켜짐' : '꺼짐'}
+                        </Text>
+                      </Pressable>
+                    </View>
+                    {detailRepeatEnabled ? (
+                      <View style={styles.categoryRow}>
+                        {recurringFrequencyOptions.map((option) => (
+                          <Pressable
+                            key={option.value}
+                            style={[styles.categoryChip, detailRepeatFrequency === option.value && styles.categoryChipActive]}
+                            onPress={() => setDetailRepeatFrequency(option.value)}
+                          >
+                            <Text
+                              style={detailRepeatFrequency === option.value ? styles.categoryChipTextActive : styles.categoryChipText}
+                            >
+                              {option.label}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    ) : null}
+                  </View>
                   <View style={styles.categorySection}>
                     <Text style={styles.categoryLabel}>카테고리</Text>
                     <View style={styles.categoryRow}>
@@ -582,6 +689,39 @@ const styles = StyleSheet.create({
   },
   detailSection: {
     marginBottom: 12,
+  },
+  detailToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  detailToggleLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  detailToggleButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#cbd5f5',
+    backgroundColor: '#ffffff',
+  },
+  detailToggleButtonActive: {
+    backgroundColor: '#0f172a',
+    borderColor: '#0f172a',
+  },
+  detailToggleText: {
+    color: '#0f172a',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  detailToggleTextActive: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 12,
   },
   categoryLabel: {
     fontSize: 13,

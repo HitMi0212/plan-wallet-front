@@ -136,7 +136,10 @@ function toPublicCategory(item: LocalCategory): Category {
 
 function toPublicTransaction(item: LocalTransaction): Transaction {
   const { userId, ...transaction } = item;
-  return transaction;
+  return {
+    ...transaction,
+    includeInBudget: transaction.includeInBudget !== false,
+  };
 }
 
 function toPublicAssetFlowAccount(item: LocalAssetFlowAccount): AssetFlowAccount {
@@ -306,6 +309,7 @@ export async function createLocalTransaction(
     categoryName: targetCategory.name,
     memo: payload.memo ?? null,
     paymentMethod: payload.paymentMethod ?? null,
+    includeInBudget: payload.includeInBudget ?? true,
     recurringRuleId: payload.recurringRuleId,
     occurredAt: payload.occurredAt,
     createdAt: timestamp,
@@ -342,6 +346,10 @@ export async function updateLocalTransaction(
   target.categoryName = targetCategory.name;
   target.memo = payload.memo ?? null;
   target.paymentMethod = payload.paymentMethod !== undefined ? payload.paymentMethod : target.paymentMethod ?? null;
+  target.includeInBudget = payload.includeInBudget ?? target.includeInBudget ?? true;
+  if (payload.recurringRuleId !== undefined) {
+    target.recurringRuleId = payload.recurringRuleId ?? undefined;
+  }
   target.occurredAt = payload.occurredAt;
   target.updatedAt = nowIso();
   await writeList(TRANSACTIONS_KEY, transactions);
@@ -445,22 +453,34 @@ export async function syncLocalRecurringToTransactions(userId: number): Promise<
 
   let changed = false;
   const existingGenerated = new Set<string>();
+  const latestGeneratedByRule = new Map<number, string>();
   transactions.forEach((item) => {
     if (!item.recurringRuleId) return;
-    const key = `${item.recurringRuleId}:${dayjs(item.occurredAt).format('YYYY-MM-DD')}`;
+    const dateKey = dayjs(item.occurredAt).format('YYYY-MM-DD');
+    const key = `${item.recurringRuleId}:${dateKey}`;
     existingGenerated.add(key);
+    const prev = latestGeneratedByRule.get(item.recurringRuleId);
+    if (!prev || dateKey > prev) {
+      latestGeneratedByRule.set(item.recurringRuleId, dateKey);
+    }
   });
 
   rules
     .filter((rule) => rule.userId === userId)
     .forEach((rule) => {
+      const actualLastGeneratedAt = latestGeneratedByRule.get(rule.id) ?? null;
+      if (rule.lastGeneratedAt !== actualLastGeneratedAt) {
+        rule.lastGeneratedAt = actualLastGeneratedAt;
+        rule.updatedAt = nowIso();
+        changed = true;
+      }
       if (!rule.isActive) return;
       const targetCategory = categories.find((item) => item.userId === userId && item.id === rule.categoryId);
       if (!targetCategory) return;
 
       const start = parseDateInput(rule.startDate);
       const end = rule.endDate ? parseDateInput(rule.endDate) : null;
-      const lastGenerated = rule.lastGeneratedAt ? parseDateInput(rule.lastGeneratedAt) : null;
+      const lastGenerated = actualLastGeneratedAt ? parseDateInput(actualLastGeneratedAt) : null;
       let from = lastGenerated ? lastGenerated.add(1, 'day') : start;
 
       if (from.isAfter(today)) return;
@@ -469,11 +489,13 @@ export async function syncLocalRecurringToTransactions(userId: number): Promise<
       let cursor = from.startOf('day');
       let steps = 0;
       const maxSteps = 800;
+      let latestMatchedDate: string | null = null;
       while ((cursor.isBefore(to) || cursor.isSame(to, 'day')) && steps < maxSteps) {
         if (cursor.isAfter(start) || cursor.isSame(start, 'day')) {
           if (!end || cursor.isBefore(end) || cursor.isSame(end, 'day')) {
             if (matchesRecurringRule(rule, cursor)) {
               const dateKey = formatDateInput(cursor);
+              latestMatchedDate = dateKey;
               const key = `${rule.id}:${dateKey}`;
               if (!existingGenerated.has(key)) {
                 const timestamp = nowIso();
@@ -486,12 +508,17 @@ export async function syncLocalRecurringToTransactions(userId: number): Promise<
                   categoryName: targetCategory.name,
                   memo: rule.memo ?? null,
                   paymentMethod: rule.paymentMethod ?? null,
+                  includeInBudget: true,
                   recurringRuleId: rule.id,
                   occurredAt: cursor.hour(12).minute(0).second(0).millisecond(0).toISOString(),
                   createdAt: timestamp,
                   updatedAt: timestamp,
                 });
                 existingGenerated.add(key);
+                const prev = latestGeneratedByRule.get(rule.id);
+                if (!prev || dateKey > prev) {
+                  latestGeneratedByRule.set(rule.id, dateKey);
+                }
                 changed = true;
               }
             }
@@ -501,9 +528,9 @@ export async function syncLocalRecurringToTransactions(userId: number): Promise<
         steps += 1;
       }
 
-      const last = formatDateInput(to);
-      if (rule.lastGeneratedAt !== last) {
-        rule.lastGeneratedAt = last;
+      const latest = latestGeneratedByRule.get(rule.id) ?? latestMatchedDate ?? null;
+      if (rule.lastGeneratedAt !== latest) {
+        rule.lastGeneratedAt = latest;
         rule.updatedAt = nowIso();
         changed = true;
       }
@@ -752,6 +779,7 @@ export async function createLocalAssetFlowAccount(
     categoryId: mapped.categoryId,
     categoryName: mapped.categoryName,
     memo: mapped.memo,
+    includeInBudget: true,
     occurredAt: payload.occurredAt,
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -806,6 +834,7 @@ export async function addLocalAssetFlowRecord(
     categoryId: mapped.categoryId,
     categoryName: mapped.categoryName,
     memo: mapped.memo,
+    includeInBudget: true,
     occurredAt: payload.occurredAt,
     createdAt: target.updatedAt,
     updatedAt: target.updatedAt,
@@ -842,6 +871,7 @@ export async function syncLocalAssetFlowToTransactions(userId: number): Promise<
           if (mapped.categoryName && linked.categoryName !== mapped.categoryName) linked.categoryName = mapped.categoryName;
           if (linked.memo !== mapped.memo) linked.memo = mapped.memo;
           if (linked.occurredAt !== record.occurredAt) linked.occurredAt = record.occurredAt;
+          if (linked.includeInBudget !== true) linked.includeInBudget = true;
           linked.updatedAt = nowIso();
           changed = true;
           return;
@@ -857,6 +887,7 @@ export async function syncLocalAssetFlowToTransactions(userId: number): Promise<
           categoryId: mapped.categoryId,
           categoryName: mapped.categoryName,
           memo: mapped.memo,
+          includeInBudget: true,
           occurredAt: record.occurredAt,
           createdAt,
           updatedAt: createdAt,
@@ -908,6 +939,7 @@ export async function updateLocalAssetFlowRecord(
       categoryId: mapped.categoryId,
       categoryName: mapped.categoryName,
       memo: mapped.memo,
+      includeInBudget: true,
       occurredAt: payload.occurredAt,
       createdAt: account.updatedAt,
       updatedAt: account.updatedAt,
@@ -920,6 +952,7 @@ export async function updateLocalAssetFlowRecord(
     txn.occurredAt = payload.occurredAt;
     txn.categoryId = mapped.categoryId;
     txn.memo = mapped.memo;
+    txn.includeInBudget = true;
     txn.updatedAt = account.updatedAt;
   }
 

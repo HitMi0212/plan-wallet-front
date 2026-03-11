@@ -82,6 +82,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
   const [savingsDepositTxIdSet, setSavingsDepositTxIdSet] = useState<Set<number>>(new Set());
   const [investDepositTxIdSet, setInvestDepositTxIdSet] = useState<Set<number>>(new Set());
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
+  const [includeInBudget, setIncludeInBudget] = useState(true);
   const [budgetAmountInput, setBudgetAmountInput] = useState('');
   const [budgetModalOpen, setBudgetModalOpen] = useState(false);
   const [monthlyBudgetAmount, setMonthlyBudgetAmount] = useState<number | null>(null);
@@ -157,6 +158,17 @@ export function HomeScreen({ navigation }: { navigation: any }) {
   const getCategoryName = React.useCallback(
     (item: { categoryId: number; categoryName?: string }) =>
       item.categoryName ?? categoryMap.get(item.categoryId)?.name ?? `카테고리 ${item.categoryId}`,
+    [categoryMap]
+  );
+  const getExpenseKind = React.useCallback(
+    (item: { categoryId: number; categoryName?: string }): ExpenseCategoryKind => {
+      const linked = categoryMap.get(item.categoryId);
+      if (linked) return linked.expenseKind;
+      const fallbackName = item.categoryName ?? '';
+      if (fallbackName === '예적금') return 'SAVINGS';
+      if (fallbackName === '투자' || fallbackName === '투자 손실') return 'INVEST';
+      return 'NORMAL';
+    },
     [categoryMap]
   );
 
@@ -308,6 +320,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
     setMemo('');
     setOccurredDateInput(dayjs().format('YYYY-MM-DD'));
     setPaymentMethod('CASH');
+    setIncludeInBudget(true);
   };
 
   const handleAdd = async () => {
@@ -334,6 +347,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
       categoryId: parsedCategory,
       memo: memo.trim() || null,
       paymentMethod: type === 'EXPENSE' ? paymentMethod : null,
+      includeInBudget: type === 'EXPENSE' ? includeInBudget : true,
       occurredAt: parsedOccurredAt,
     });
 
@@ -392,11 +406,19 @@ export function HomeScreen({ navigation }: { navigation: any }) {
     () => todayItems.filter((item) => item.type === 'EXPENSE').reduce((sum, item) => sum + item.amount, 0),
     [todayItems]
   );
+  const budgetExpenseTotal = useMemo(
+    () =>
+      monthItems
+        .filter((item) => item.type === 'EXPENSE' && item.includeInBudget !== false)
+        .filter((item) => getExpenseKind(item) === 'NORMAL')
+        .reduce((sum, item) => sum + item.amount, 0),
+    [monthItems, getExpenseKind]
+  );
   const budgetProgress = monthlyBudgetAmount && monthlyBudgetAmount > 0
-    ? Math.min(expenseTotal / monthlyBudgetAmount, 1)
+    ? Math.min(budgetExpenseTotal / monthlyBudgetAmount, 1)
     : 0;
-  const budgetOverProgress = monthlyBudgetAmount && monthlyBudgetAmount > 0 && expenseTotal > monthlyBudgetAmount
-    ? Math.min((expenseTotal - monthlyBudgetAmount) / monthlyBudgetAmount, 1)
+  const budgetOverProgress = monthlyBudgetAmount && monthlyBudgetAmount > 0 && budgetExpenseTotal > monthlyBudgetAmount
+    ? Math.min((budgetExpenseTotal - monthlyBudgetAmount) / monthlyBudgetAmount, 1)
     : 0;
 
   useLayoutEffect(() => {
@@ -484,8 +506,8 @@ export function HomeScreen({ navigation }: { navigation: any }) {
               ) : null}
             </View>
             <Text style={styles.budgetMeta}>
-              사용 {masked(expenseTotal)} · 잔여 {masked(Math.max(monthlyBudgetAmount - expenseTotal, 0))}
-              {expenseTotal > monthlyBudgetAmount ? ` · 초과 ${masked(expenseTotal - monthlyBudgetAmount)}` : ''}
+              사용 {masked(budgetExpenseTotal)} · 잔여 {masked(Math.max(monthlyBudgetAmount - budgetExpenseTotal, 0))}
+              {budgetExpenseTotal > monthlyBudgetAmount ? ` · 초과 ${masked(budgetExpenseTotal - monthlyBudgetAmount)}` : ''}
             </Text>
           </>
         ) : (
@@ -494,7 +516,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
       </View>
 
       {isCurrentMonth ? (
-        <View style={styles.monthListCard}>
+        <View style={[styles.monthListCard, styles.todayMonthListCard]}>
           <View style={styles.monthListHeader}>
             <Text style={styles.monthListTitle}>금일 소비 ({dayjs().format('M월 D일')})</Text>
             <Pressable
@@ -513,7 +535,7 @@ export function HomeScreen({ navigation }: { navigation: any }) {
           {todayItems.length === 0 ? (
             <Text style={styles.helperText}>오늘 등록된 내역이 없습니다.</Text>
           ) : (
-            <ScrollView style={styles.monthListScroll} nestedScrollEnabled>
+            <ScrollView style={[styles.monthListScroll, styles.todayMonthListScroll]} nestedScrollEnabled>
               {todayItems.map((item) => (
                 <View key={item.id} style={styles.monthItemRow}>
                   <View>
@@ -604,22 +626,35 @@ export function HomeScreen({ navigation }: { navigation: any }) {
               </Pressable>
             </View>
             {type === 'EXPENSE' ? (
-              <View style={styles.methodRow}>
-                {([
-                  { label: '신용카드', value: 'CREDIT' },
-                  { label: '체크카드', value: 'DEBIT' },
-                  { label: '현금', value: 'CASH' },
-                ] as Array<{ label: string; value: PaymentMethod }>).map((option) => (
+              <View>
+                <View style={styles.methodRow}>
+                  {([
+                    { label: '신용카드', value: 'CREDIT' },
+                    { label: '체크카드', value: 'DEBIT' },
+                    { label: '현금', value: 'CASH' },
+                  ] as Array<{ label: string; value: PaymentMethod }>).map((option) => (
+                    <Pressable
+                      key={option.value}
+                      style={[styles.methodChip, paymentMethod === option.value && styles.methodChipActive]}
+                      onPress={() => setPaymentMethod(option.value)}
+                    >
+                      <Text style={paymentMethod === option.value ? styles.methodChipTextActive : styles.methodChipText}>
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <View style={styles.budgetIncludeRow}>
+                  <Text style={styles.budgetIncludeLabel}>예산 포함</Text>
                   <Pressable
-                    key={option.value}
-                    style={[styles.methodChip, paymentMethod === option.value && styles.methodChipActive]}
-                    onPress={() => setPaymentMethod(option.value)}
+                    style={[styles.budgetIncludeToggle, includeInBudget && styles.budgetIncludeToggleActive]}
+                    onPress={() => setIncludeInBudget((prev) => !prev)}
                   >
-                    <Text style={paymentMethod === option.value ? styles.methodChipTextActive : styles.methodChipText}>
-                      {option.label}
+                    <Text style={includeInBudget ? styles.budgetIncludeToggleTextActive : styles.budgetIncludeToggleText}>
+                      {includeInBudget ? '포함' : '제외'}
                     </Text>
                   </Pressable>
-                ))}
+                </View>
               </View>
             ) : null}
             <TextField label="금액" value={amount} onChangeText={setAmount} placeholder="예: 12000" />
@@ -999,6 +1034,12 @@ const styles = StyleSheet.create({
   monthListScroll: {
     maxHeight: 250,
   },
+  todayMonthListCard: {
+    maxHeight: 250,
+  },
+  todayMonthListScroll: {
+    maxHeight: 200,
+  },
   monthListTitle: {
     fontSize: 14,
     color: '#334155',
@@ -1251,6 +1292,39 @@ const styles = StyleSheet.create({
   methodChipTextActive: {
     color: '#ffffff',
     fontWeight: '700',
+  },
+  budgetIncludeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  budgetIncludeLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  budgetIncludeToggle: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#cbd5f5',
+    backgroundColor: '#ffffff',
+  },
+  budgetIncludeToggleActive: {
+    borderColor: '#0f172a',
+    backgroundColor: '#0f172a',
+  },
+  budgetIncludeToggleText: {
+    color: '#0f172a',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  budgetIncludeToggleTextActive: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 12,
   },
   typeChip: {
     paddingHorizontal: 12,

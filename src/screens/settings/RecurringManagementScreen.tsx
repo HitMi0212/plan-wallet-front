@@ -8,6 +8,7 @@ import {
   getLocalCategories,
   getLocalRecurringRules,
   requireAuthenticatedUserId,
+  syncLocalRecurringToTransactions,
   updateLocalRecurringRule,
   RecurringRule,
   RecurringFrequency,
@@ -44,7 +45,7 @@ function getNextOccurrence(rule: RecurringRule) {
   const start = dayjs(rule.startDate, 'YYYY-MM-DD').startOf('day');
   const end = rule.endDate ? dayjs(rule.endDate, 'YYYY-MM-DD').endOf('day') : null;
   const last = rule.lastGeneratedAt ? dayjs(rule.lastGeneratedAt, 'YYYY-MM-DD').startOf('day') : null;
-  let cursor = last ? last.add(1, 'day') : start;
+  let cursor = last ? last.add(1, 'day') : start.add(1, 'day');
   const limit = dayjs().add(2, 'year');
   while (cursor.isBefore(limit) || cursor.isSame(limit, 'day')) {
     if (cursor.isAfter(start) || cursor.isSame(start, 'day')) {
@@ -83,6 +84,7 @@ export function RecurringManagementScreen() {
     setLoading(true);
     try {
       const userId = await requireAuthenticatedUserId();
+      await syncLocalRecurringToTransactions(userId);
       const [nextRules, categories] = await Promise.all([
         getLocalRecurringRules(userId),
         getLocalCategories(userId),
@@ -228,8 +230,6 @@ export function RecurringManagementScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>반복 거래 관리</Text>
-        <Text style={styles.helperText}>거래 등록 시 설정한 반복 항목을 관리합니다.</Text>
         <PrimaryButton title="새 반복 거래 추가" onPress={openAddModal} variant="primary" />
       </View>
 

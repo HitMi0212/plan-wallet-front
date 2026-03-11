@@ -10,6 +10,7 @@ export interface Transaction {
   categoryName?: string;
   memo?: string | null;
   paymentMethod?: PaymentMethod | null;
+  includeInBudget?: boolean;
   recurringRuleId?: number;
   occurredAt: string;
   createdAt: string;
@@ -22,6 +23,7 @@ export interface TransactionCreateRequest {
   categoryId: number;
   memo?: string | null;
   paymentMethod?: PaymentMethod | null;
+  includeInBudget?: boolean;
   recurringRuleId?: number;
   occurredAt: string;
 }
@@ -32,5 +34,7 @@ export interface TransactionUpdateRequest {
   categoryId: number;
   memo?: string | null;
   paymentMethod?: PaymentMethod | null;
+  includeInBudget?: boolean;
+  recurringRuleId?: number | null;
   occurredAt: string;
 }

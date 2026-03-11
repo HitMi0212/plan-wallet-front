@@ -68,25 +68,39 @@ export function StatsScreen() {
     }, [load, year, month, loadTransactions, loadCategories])
   );
 
-  const expenseCategoryMap = useMemo(() => {
+  const expenseCategoryMetaMap = useMemo(() => {
     return new Map(
       categories
         .filter((category) => category.type === 'EXPENSE')
-        .map((category) => [category.id, category.name])
+        .map((category) => [
+          category.id,
+          { name: category.name, expenseKind: category.expenseKind ?? 'NORMAL' },
+        ])
     );
   }, [categories]);
+  const getExpenseKind = React.useCallback(
+    (item: { categoryId: number; categoryName?: string }) => {
+      const linked = expenseCategoryMetaMap.get(item.categoryId);
+      if (linked) return linked.expenseKind;
+      const fallbackName = item.categoryName ?? '';
+      if (fallbackName === '예적금') return 'SAVINGS';
+      if (fallbackName === '투자' || fallbackName === '투자 손실') return 'INVEST';
+      return 'NORMAL';
+    },
+    [expenseCategoryMetaMap]
+  );
 
   const categoryExpenseTotals = useMemo(() => {
     return categoryTotals
       .filter((item) => item.total > 0)
       .map((item) => {
-        const name = expenseCategoryMap.get(item.categoryId);
+        const name = expenseCategoryMetaMap.get(item.categoryId)?.name;
         if (!name) return null;
         return { ...item, name };
       })
       .filter((item): item is { categoryId: number; total: number; name: string } => item !== null)
       .sort((a, b) => b.total - a.total);
-  }, [categoryTotals, expenseCategoryMap]);
+  }, [categoryTotals, expenseCategoryMetaMap]);
 
   const pieData = useMemo(() => {
     return categoryExpenseTotals.map((item, index) => ({
@@ -101,7 +115,13 @@ export function StatsScreen() {
   const maxExpenseDaySummary = useMemo(() => {
     const monthExpenseItems = transactions.filter((item) => {
       const d = dayjs(item.occurredAt);
-      return item.type === 'EXPENSE' && d.year() === year && d.month() + 1 === month;
+      return (
+        item.type === 'EXPENSE'
+        && d.year() === year
+        && d.month() + 1 === month
+        && item.includeInBudget !== false
+        && getExpenseKind(item) === 'NORMAL'
+      );
     });
     if (monthExpenseItems.length === 0) return null;
 
@@ -121,7 +141,7 @@ export function StatsScreen() {
     dayItems.forEach((item) => {
       const categoryName =
         item.categoryName ??
-        expenseCategoryMap.get(item.categoryId) ??
+        expenseCategoryMetaMap.get(item.categoryId)?.name ??
         (item.categoryId > 0 ? `카테고리 ${item.categoryId}` : '미분류');
       const key = item.categoryId > 0 ? `id:${item.categoryId}` : `name:${categoryName}`;
       const prev = categoryTotalMap.get(key);
@@ -153,7 +173,7 @@ export function StatsScreen() {
         key: item.categoryId > 0 ? `id:${item.categoryId}` : `name:${item.categoryName}`,
       })),
     };
-  }, [transactions, year, month, expenseCategoryMap]);
+  }, [transactions, year, month, expenseCategoryMetaMap, getExpenseKind]);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>

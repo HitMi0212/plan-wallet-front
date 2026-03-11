@@ -17,7 +17,12 @@ import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { TextField } from '../../components/TextField';
 import { PaymentMethod, TransactionType } from '../../services/transactionApi';
-import { createLocalRecurringRule, requireAuthenticatedUserId, RecurringFrequency } from '../../services/localDb';
+import {
+  createLocalRecurringRule,
+  deleteLocalRecurringRule,
+  requireAuthenticatedUserId,
+  RecurringFrequency,
+} from '../../services/localDb';
 import { useCategoryStore } from '../../stores/categoryStore';
 import { useTransactionStore } from '../../stores/transactionStore';
 
@@ -44,6 +49,7 @@ export function TransactionFormScreen() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [step, setStep] = useState<'INPUT' | 'CATEGORY'>('INPUT');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
+  const [includeInBudget, setIncludeInBudget] = useState(true);
   const [repeatEnabled, setRepeatEnabled] = useState(false);
   const [repeatFrequency, setRepeatFrequency] = useState<RecurringFrequency>('MONTHLY');
 
@@ -129,19 +135,12 @@ export function TransactionFormScreen() {
       return;
     }
 
-    await add({
-      type,
-      amount: validated.parsedAmount,
-      categoryId: parsedCategory,
-      memo: memo.trim() || null,
-      paymentMethod: type === 'EXPENSE' ? paymentMethod : null,
-      occurredAt: validated.parsedOccurredAt,
-    });
-
+    let userId = 0;
+    let recurringRuleId: number | undefined;
     if (repeatEnabled) {
-      const userId = await requireAuthenticatedUserId();
-      const baseDate = dayjs(occurredDateInput);
-      await createLocalRecurringRule(userId, {
+      userId = await requireAuthenticatedUserId();
+      const baseDate = dayjs(occurredDateInput, 'YYYY-MM-DD');
+      const createdRule = await createLocalRecurringRule(userId, {
         type,
         amount: validated.parsedAmount,
         categoryId: parsedCategory,
@@ -154,6 +153,25 @@ export function TransactionFormScreen() {
         dayOfMonth: repeatFrequency === 'MONTHLY' || repeatFrequency === 'YEARLY' ? baseDate.date() : undefined,
         monthOfYear: repeatFrequency === 'YEARLY' ? baseDate.month() + 1 : undefined,
       });
+      recurringRuleId = createdRule.id;
+    }
+
+    try {
+      await add({
+        type,
+        amount: validated.parsedAmount,
+        categoryId: parsedCategory,
+        memo: memo.trim() || null,
+        paymentMethod: type === 'EXPENSE' ? paymentMethod : null,
+        includeInBudget: type === 'EXPENSE' ? includeInBudget : true,
+        recurringRuleId,
+        occurredAt: validated.parsedOccurredAt,
+      });
+    } catch (error) {
+      if (recurringRuleId && userId) {
+        await deleteLocalRecurringRule(userId, recurringRuleId);
+      }
+      throw error;
     }
 
     navigation.goBack();
@@ -239,6 +257,17 @@ export function TransactionFormScreen() {
                         </Text>
                       </Pressable>
                     ))}
+                  </View>
+                  <View style={styles.budgetIncludeRow}>
+                    <Text style={styles.budgetIncludeLabel}>예산 포함</Text>
+                    <Pressable
+                      style={[styles.toggleButton, includeInBudget && styles.toggleButtonActive]}
+                      onPress={() => setIncludeInBudget((prev) => !prev)}
+                    >
+                      <Text style={includeInBudget ? styles.toggleTextActive : styles.toggleText}>
+                        {includeInBudget ? '포함' : '제외'}
+                      </Text>
+                    </Pressable>
                   </View>
                 </View>
               ) : null}
@@ -481,6 +510,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  budgetIncludeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  budgetIncludeLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f172a',
   },
   toggleButton: {
     paddingHorizontal: 12,
